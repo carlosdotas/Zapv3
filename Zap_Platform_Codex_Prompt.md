@@ -1,12 +1,12 @@
-# ZAP PLATFORM — AI BUILD CONTRACT (v1, pre-production)
+# ZAP PLATFORM — ARCHITECTURE & BUSINESS CONTRACT (existing project)
 
-## 0. Agent entrypoint and execution
-1. You are the engineering agent in a NEW EMPTY repository. Build a collection-dispatch platform from scratch; do not reference legacy projects.
-2. Create concise root `AGENTS.md` as the mandatory entrypoint: project map, commands, rules, and links to relevant docs. Future agents read it first, then ONLY task-relevant files/sections.
-3. Create `docs/{ARCHITECTURE,DOMAIN,DATABASE,API,SECURITY,OPERATIONS,DECISIONS,TASKS}.md`; avoid duplicated documentation. Record reversible defaults in `DECISIONS.md`.
-4. Work in small testable increments; avoid full-repo rereads, huge files, unnecessary dependencies, unrelated refactors, verbose reports, or repeating tests without reason.
-5. Assign logical agent ownership: Architect/Integrator, SQL, API/Security, Admin UI, Company UI, Professional UI, QA/DevOps. These are roles, NOT mandatory parallel AI processes. Track scoped tasks, allowed files, dependencies, and acceptance criteria in `TASKS.md`.
-6. Ask only for credentials, external provisioning, destructive operations, or irreversible decisions. Never invent secrets or claim unexecuted tests/deployments.
+## 0. Current state and economical agent workflow
+1. Zapv3 is an **existing implemented monorepo**, not an empty repository. Never recreate scaffolding or restart the initial milestone unless explicitly requested.
+2. `AGENTS.md` is the concise mandatory entrypoint. For normal changes, read only task-relevant source files; consult **specific sections** of this contract only when the requested change touches their rules. Do not read this entire document automatically.
+3. Preserve existing working behavior and project boundaries. Make small, testable, reversible changes; avoid full-repo scans, large plans, redundant documentation, unnecessary dependencies, multiple agents and repeated tests.
+4. Ask only for missing essential information, credentials, destructive operations or irreversible decisions. Never invent secrets or claim unexecuted tests or deployments.
+5. The historical initial build plan below is reference context, **not a standing instruction to execute**. Actual source code and current migrations determine what is already implemented; verify before proposing changes.
+6. Keep AI output concise (usually at most five lines), except when more detail is requested or required to explain risk.
 
 ## 1. Language and localization
 - This contract and agent-facing technical documentation use concise English for consistency; English is NOT inherently more accurate for AI.
@@ -38,7 +38,7 @@
 - This session's toolchain is now installed: Android SDK 35 at `/workspace/android-sdk`, JDK 17 at `/workspace/jdk17`, Gradle cache at `/workspace/gradle-cache`, Android user configuration at `/workspace/android-user/.android`. See `docs/OPERATIONS.md` for the verified command and proxy trust settings. These paths describe this workspace; verify their existence in a new environment before assuming readiness.
 - Reuse this toolchain and the native project. Never promise delivery with the phone powered off or after force-stop/process termination. Physical-device checks remain required for background GPS, sound/vibration and Android restrictions.
 
-## 4. Required repository layout
+## 4. Repository layout reference
 ```text
 AGENTS.md                 README.md             .env.example
 apps/{home-web,admin-web,company-web,professional-web}/
@@ -51,7 +51,7 @@ tests/
 ```
 22. Modules own their routes, schemas, services, repositories; avoid giant files, circular imports, cross-module SQL access, duplicated business rules, and shared mutable globals.
 
-## 5. Initial SQL contract
+## 5. Original SQL/domain contract (historical baseline; verify current migrations)
 23. Use stable PKs (MySQL UUID `CHAR(36)` unless documented otherwise), UTC timestamps, explicit FKs/UNIQUE constraints, indexes, and versioned SQL migrations.
 24. `users(id,name,phone_e164 UNIQUE,password_hash,status,created_at,updated_at)`; `roles(id,code UNIQUE)`; `permissions(id,code UNIQUE)`; `role_permissions(role_id,permission_id)`.
 25. `user_global_roles(user_id,role_id)` (global roles only); `companies(id,name,status)`; `company_members(id,company_id,user_id,role_id,status)` with unique membership scope.
@@ -73,7 +73,7 @@ tests/
 39. Security: Argon2id (or comparable) password hashes, secure expiring/revocable sessions, scoped RBAC, tenant isolation, rate limits, CORS, HTTPS, validated private uploads, no secrets in logs or frontend.
 40. LGPD: purpose-limited GPS consent, restricted visibility, minimum retention, auditable privileged actions, deletion/anonymization strategy. No destructive migrations without explicit approval; document backup/restore.
 
-## 7. First delivery milestone
+## 7. Original first delivery milestone (historical; do not re-execute)
 41. Scaffold workspaces, scripts, TypeScript, lint, tests, `.gitignore`, `.env.example`, docs and runnable Fastify `/health`.
 42. Implement initial SQL migrations, local compatible DB workflow, non-production seed, real authentication, role checks, admin-managed companies and `GET /me`.
 43. Build minimal REAL login and protected landing pages for the three operational React apps, plus the public home; do not generate dozens of mock screens.
@@ -89,4 +89,4 @@ tests/
 51. Before production: review auth/security, SQL migrations, backup/restore, permissions, deployment, observability, compatibility and real-device push/GPS behavior; then enforce stricter versioning.
 52. Final response per task: changed files, verified tests, implemented vs stubbed vs blocked, decisions (if any), exact next step. Be concise.
 
-**START NOW:** inspect only the current directory, create the scaffold, then implement milestone items in small verifiable increments. Do not deploy or delete real data without approval.
+**CURRENT RULE:** Implement only the user's current task in the existing repository. Do not recreate the project, execute old milestones, deploy or delete real data without authorization.
