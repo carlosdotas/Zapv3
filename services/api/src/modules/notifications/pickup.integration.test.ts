@@ -40,7 +40,8 @@ test.skipIf(!enabled)('SQL: tenant isolation, target validation, atomic response
  await expect(store.create('other-company-user','company','pro')).rejects.toThrow('FORBIDDEN');
  await expect(store.create('company-user','company','outsider')).rejects.toThrow('UNAVAILABLE');
  const call=await store.create('company-user','company','pro');
- expect(Date.parse(call.expiresAt)-Date.now()).toBeGreaterThan(28000);
+ expect(Date.parse(call.expiresAt)-Date.now()).toBeGreaterThan(118000);
+ expect(Date.parse(call.expiresAt)-Date.now()).toBeLessThanOrEqual(120000);
  await expect(store.respond('outsider',call.id,'accepted')).rejects.toThrow('FORBIDDEN');
  const results=await Promise.all([store.respond('pro',call.id,'accepted'),store.respond('pro',call.id,'rejected')]);
  expect(new Set(results.map(r=>r.status)).size).toBe(1);
@@ -94,17 +95,17 @@ test.skipIf(!enabled)('Socket.IO: authenticated delivery, reconnect recovery, te
  await expect(companyExpiry).resolves.toMatchObject({id:response.data.id,status:'expired'});
  expect(driverEvent).not.toHaveBeenCalled();
 });
-test.skipIf(!enabled)('Socket.IO: a chamada expira após 30 segundos reais',async()=>{
+test.skipIf(!enabled)('Socket.IO: a chamada usa prazo de dois minutos e expira pelo relógio SQL',async()=>{
  await pool.query("UPDATE company_professionals SET status='active' WHERE company_id='company' AND professional_user_id='pro'");
  await pool.query('UPDATE pickup_test_calls SET created_at=UTC_TIMESTAMP(3)-INTERVAL 1 MINUTE');
  await store.duty('pro',true);
  const company=await connect('company-user');
  let id='';
  const expired=new Promise<any>(resolve=>company.on('pickup:updated',(call:any)=>{if(call.id===id && call.status==='expired')resolve(call);}));
- const start=Date.now();
  const created=await emit(company,'pickup:create',{companyId:'company',professionalId:'pro'});
  expect(created.error).toBeUndefined();id=created.data.id;
+ const remaining=Date.parse(created.data.expiresAt)-Date.now();
+ expect(remaining).toBeGreaterThan(118000);expect(remaining).toBeLessThanOrEqual(120000);
+ await pool.execute('UPDATE pickup_test_calls SET expires_at=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND WHERE id=?',[id]);
  await expect(expired).resolves.toMatchObject({id,status:'expired'});
- expect(Date.now()-start).toBeGreaterThanOrEqual(29000);
- expect(Date.now()-start).toBeLessThan(38000);
-},45000);
+},10000);

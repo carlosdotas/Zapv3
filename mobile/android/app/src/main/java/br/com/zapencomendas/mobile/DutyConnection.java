@@ -79,15 +79,23 @@ final class DutyConnection {
             long remaining=expires-System.currentTimeMillis();
             if (remaining<=0 || pending.containsKey(id) || stopping) return;
             pending.put(id,expires);
-            PendingIntent open=PendingIntent.getActivity(service,id.hashCode(),new Intent(service,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-            Notification.Builder notification=new Notification.Builder(service,CHANNEL).setSmallIcon(R.drawable.ic_launcher)
-                .setContentTitle("Chamada de coleta — teste").setContentText("Aceite ou recuse em até 30 segundos.")
-                .setContentIntent(open).setCategory(Notification.CATEGORY_CALL).setTimeoutAfter(remaining).setAutoCancel(false)
-                .addAction(new Notification.Action.Builder(null,"Aceitar",action(id,"accepted")).build())
-                .addAction(new Notification.Action.Builder(null,"Recusar",action(id,"rejected")).build());
-            try {manager.notify(id,8200,notification.build());} catch(SecurityException ignored){}
-            handler.postDelayed(()->{pending.remove(id);manager.cancel(id,8200);},remaining);
+            alertPending(id);
         });
+    }
+    private void alertPending(String id) {
+        Long expires=pending.get(id);
+        if (expires==null || stopping) return;
+        NotificationManager manager=service.getSystemService(NotificationManager.class);
+        long remaining=expires-System.currentTimeMillis();
+        if (remaining<=0) {pending.remove(id);manager.cancel(id,8200);return;}
+        PendingIntent open=PendingIntent.getActivity(service,id.hashCode(),new Intent(service,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+        Notification.Builder notification=new Notification.Builder(service,CHANNEL).setSmallIcon(R.drawable.ic_launcher)
+            .setContentTitle("Chamada de coleta — teste").setContentText("Aceite ou recuse antes de a chamada expirar.")
+            .setContentIntent(open).setCategory(Notification.CATEGORY_CALL).setTimeoutAfter(remaining).setAutoCancel(false)
+            .addAction(new Notification.Action.Builder(null,"Aceitar",action(id,"accepted")).build())
+            .addAction(new Notification.Action.Builder(null,"Recusar",action(id,"rejected")).build());
+        try {manager.notify(id,8200,notification.build());} catch(SecurityException ignored){}
+        handler.postDelayed(()->alertPending(id),Math.min(8000,remaining));
     }
     private PendingIntent action(String id,String answer) {
         Intent intent=new Intent(service,LocationService.class).setAction("respond").setData(android.net.Uri.parse("zap://pickup/"+id+"/"+answer)).putExtra("id",id).putExtra("answer",answer);

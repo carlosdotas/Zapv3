@@ -1,1 +1,13 @@
 @import url('../../auth.css');
+
+.driver-dashboard { max-width: 520px; margin: 24px auto; padding: 28px; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px #00142426; }
+.driver-dashboard h1 { color: #13263d; font-size: 26px; }
+.driver-button { min-height: 48px; padding: 12px 20px; border: 0; border-radius: 8px; color: #fff; font-weight: 800; }
+.driver-button:focus-visible { outline: 3px solid #f59e0b; outline-offset: 3px; }
+.driver-button--on, .driver-button--accepted { background: #087a4d; }
+.driver-button--off, .driver-button--rejected { background: #b42318; }
+.driver-button--logout { background: #475569; }
+.driver-call { margin: 20px 0; padding: 18px; border: 1px solid #fbbf24; border-radius: 12px; background: #fffbeb; }
+.driver-call__actions { display: flex; justify-content: center; gap: 12px; }
+.driver-call__actions .driver-button { flex: 1; }
+@media (max-width: 400px) { .driver-dashboard { margin: 12px; padding: 20px; } }

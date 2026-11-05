@@ -111,7 +111,7 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
       setBusy(false);
       if (failure || result?.error || !result?.data) { setMessage(result?.error || 'Não foi possível confirmar o envio. Confira o histórico antes de tentar novamente.'); return; }
       setCalls(current => [result.data!, ...current.filter(call => call.id !== result.data!.id)].slice(0, 100));
-      setMessage('Chamada enviada! O motorista tem 30 segundos para responder.');
+      setMessage('Chamada enviada! O motorista tem até 2 minutos para responder.');
     });
   }
 
