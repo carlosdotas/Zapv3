@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { DriverIcon } from './driver-icons';
+import { DriverMap } from './driver-map';
 
 type Coordinates = { latitude: number; longitude: number } | null;
 export function DriverOnline({ name, connected, location, onStop, onLogout, children }: { name: string; connected: boolean; location: Coordinates; onStop: () => void; onLogout: () => void; children?: ReactNode }) {
@@ -7,10 +8,10 @@ export function DriverOnline({ name, connected, location, onStop, onLogout, chil
   const [accountOpen, setAccountOpen] = useState(false);
   const initials = name.trim().split(/\s+/).slice(0, 2).map(part=>part[0]).join('').toUpperCase() || 'MT';
   useEffect(() => { if (!confirmStop) return; const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setConfirmStop(false); }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); }, [confirmStop]);
-  const mapUrl = location ? `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}` : '';
   return <div className="driver-online"><header className="driver-online__header"><div className="driver-online__brand"><span className="driver-online__logo"><DriverIcon name="package"/></span><div><span>ENCOMENDAS<span>ZAP</span></span><small>Área do motorista</small></div></div><div className="driver-account"><button type="button" className="driver-avatar driver-avatar--small" onClick={()=>setAccountOpen(!accountOpen)} aria-label="Abrir menu da conta" aria-expanded={accountOpen}>{initials}</button>{accountOpen && <div className="driver-account__menu"><strong>{name}</strong><span>Motorista</span><button type="button" onClick={onLogout}><DriverIcon name="logout" size={16}/> Sair da conta</button></div>}</div></header>
     <div className="driver-online__status"><span className="driver-pill driver-pill--online"><i/>Em serviço</span><span className={`driver-connection${connected?' driver-connection--online':''}`}>{connected?'Conectado':'Reconectando'}</span></div>
-    <main className="driver-online__main"><div className="driver-map-card"><div className="driver-map-card__symbol"><DriverIcon name="map" size={32}/></div><h1>Você está online</h1><p>Aguarde as chamadas da central. Sua localização é compartilhada enquanto estiver em serviço.</p><div className="driver-map-card__gps"><DriverIcon name="pin" size={17}/><span>{location ? 'Localização recebida' : 'Aguardando localização do aparelho'}</span></div>{mapUrl && <a href={mapUrl} className="driver-map-link">Ver minha localização no mapa <DriverIcon name="chevrons" size={14}/></a>}<small>O mapa integrado ainda está em preparação.</small></div>{children}</main>
+    <DriverMap location={location}/>
+    <main className="driver-online__main">{children}</main>
     <footer className="driver-online__footer"><div><strong>Pronto para receber</strong><span>As chamadas aparecerão nesta tela</span></div><button type="button" onClick={()=>setConfirmStop(true)} aria-label="Sair de serviço"><DriverIcon name="power" size={22}/></button></footer>
     {confirmStop && <div className="driver-dialog-backdrop" onClick={()=>setConfirmStop(false)}><section className="driver-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-dialog-title" onClick={event=>event.stopPropagation()}><div className="driver-dialog__icon"><DriverIcon name="power" size={22}/></div><h2 id="driver-dialog-title">Finalizar serviço?</h2><p>Ao sair de serviço, a localização será pausada e você deixará de receber chamadas.</p><div><button type="button" onClick={()=>setConfirmStop(false)}>Continuar online</button><button type="button" onClick={()=>{setConfirmStop(false);onStop();}}>Sim, sair de serviço</button></div></section></div>}
   </div>;
