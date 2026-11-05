@@ -10,14 +10,14 @@ type UserRow = RowDataPacket & { id: string; name: string; phone_e164: string; p
 type RoleRow = RowDataPacket & { code: Role };
 
 export class MysqlStore implements IdentityStore {
-  private pool: Pool;
+  readonly pool: Pool;
   private configured = true;
   ready: Promise<void>;
 
   constructor() {
     const host = process.env.DB_HOST?.trim();
     if (host && !host.includes('COLOQUE_AQUI')) {
-      this.pool = mysql.createPool({ host, port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME, connectionLimit: 5 });
+      this.pool = mysql.createPool({ host, port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME, timezone: 'Z', connectionLimit: 5 });
     } else if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('COLOQUE_AQUI')) {
       this.pool = mysql.createPool(process.env.DATABASE_URL);
     } else {
@@ -38,6 +38,9 @@ export class MysqlStore implements IdentityStore {
       const migration = await readFile(resolve(__dirname, 'migrations', '002_identity_bootstrap.sql'), 'utf8')
         .catch(() => readFile(resolve(__dirname, '../../../database/migrations/002_identity_bootstrap.sql'), 'utf8'));
       for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
+      const pickupMigration = await readFile(resolve(__dirname, 'migrations', '003_pickup_calls.sql'), 'utf8')
+        .catch(() => readFile(resolve(__dirname, '../../../database/migrations/003_pickup_calls.sql'), 'utf8'));
+      for (const statement of pickupMigration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
       await this.bootstrap(connection);
     } finally {
       if (locked) await connection.query("SELECT RELEASE_LOCK('zap_identity_bootstrap')");

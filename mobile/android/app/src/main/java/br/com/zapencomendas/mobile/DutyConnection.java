@@ -1,0 +1,112 @@
+package br.com.zapencomendas.mobile;
+
+import android.app.*;
+import android.content.Intent;
+import android.location.Location;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.os.Handler;
+import android.os.Looper;
+import org.json.*;
+import java.net.URI;
+import java.util.*;
+import io.socket.client.IO;
+import io.socket.client.Socket;
+import io.socket.client.Ack;
+
+/** Owned exclusively by the foreground location service; no Activity/WebView dependency. */
+final class DutyConnection {
+    private final LocationService service;
+    private final Socket socket;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Map<String, Long> pending = new HashMap<>();
+    private volatile Location latest;
+    private volatile boolean stopping;
+    private long lastSent;
+    private static final String CHANNEL = "zap_pickup_calls_v1";
+    private final Runnable heartbeat = new Runnable() {
+        public void run() {
+            if (stopping) return;
+            if (socket.connected()) socket.emit("presence:heartbeat", new JSONObject(), (Ack) args -> {});
+            handler.postDelayed(this, 30000);
+        }
+    };
+    DutyConnection(LocationService service, String token) {
+        this.service = service;
+        IO.Options options = IO.Options.builder().setAuth(Collections.singletonMap("token", token))
+            .setReconnection(true).setReconnectionDelay(1000).setReconnectionDelayMax(15000).build();
+        socket = IO.socket(URI.create(BuildConfig.API_URL), options);
+        NotificationChannel channel = new NotificationChannel(CHANNEL, "Chamadas de coleta", NotificationManager.IMPORTANCE_HIGH);
+        channel.enableVibration(true);
+        channel.setVibrationPattern(new long[]{0,400,200,400});
+        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
+        service.getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        socket.on(Socket.EVENT_CONNECT, args -> {
+            if (stopping) return;
+            socket.emit("duty:set", json("onDuty",true), (Ack) result -> {
+                JSONObject response = object(result);
+                if (response.has("error")) { handler.post(service::stopSelf); return; }
+                socket.emit("pickup:sync", new JSONObject(), (Ack) items -> {
+                    JSONArray calls = object(items).optJSONArray("data");
+                    if (calls != null) for (int i=0;i<calls.length();i++) receive(calls.optJSONObject(i));
+                });
+                if (latest != null) location(latest);
+            });
+        });
+        socket.on("pickup:updated", args -> receive(object(args)));
+        socket.on(Socket.EVENT_CONNECT_ERROR, args -> { /* Reconnection is bounded by Socket.IO backoff. */ });
+        socket.connect();
+        handler.post(heartbeat);
+    }
+    private JSONObject object(Object[] args) { return args.length>0 && args[0] instanceof JSONObject ? (JSONObject)args[0] : new JSONObject(); }
+    private JSONObject json(String key,Object value) { JSONObject obj=new JSONObject();try {obj.put(key,value);}catch(JSONException ignored){}return obj; }
+    synchronized void location(Location location) {
+        latest=location;
+        if (!socket.connected() || stopping || System.currentTimeMillis()-lastSent<10000 || System.currentTimeMillis()-location.getTime()>120000) return;
+        lastSent=System.currentTimeMillis();
+        JSONObject body=json("latitude",location.getLatitude());
+        try { body.put("longitude",location.getLongitude()); body.put("accuracy",location.hasAccuracy()?location.getAccuracy():1000); body.put("recordedAt",java.time.Instant.ofEpochMilli(location.getTime()).toString()); } catch(JSONException ignored){}
+        socket.emit("location:update",body,(Ack) args -> {});
+    }
+    private void receive(JSONObject call) {
+        if (call == null) return;
+        handler.post(() -> {
+            String id=call.optString("id");
+            NotificationManager manager=service.getSystemService(NotificationManager.class);
+            if (!"pending".equals(call.optString("status"))) {pending.remove(id);manager.cancel(id,8200);return;}
+            long expires;
+            try {expires=java.time.Instant.parse(call.getString("expiresAt")).toEpochMilli();} catch(Exception e){return;}
+            long remaining=expires-System.currentTimeMillis();
+            if (remaining<=0 || pending.containsKey(id) || stopping) return;
+            pending.put(id,expires);
+            PendingIntent open=PendingIntent.getActivity(service,id.hashCode(),new Intent(service,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+            Notification.Builder notification=new Notification.Builder(service,CHANNEL).setSmallIcon(R.drawable.ic_launcher)
+                .setContentTitle("Chamada de coleta — teste").setContentText("Aceite ou recuse em até 30 segundos.")
+                .setContentIntent(open).setCategory(Notification.CATEGORY_CALL).setTimeoutAfter(remaining).setAutoCancel(false)
+                .addAction(new Notification.Action.Builder(null,"Aceitar",action(id,"accepted")).build())
+                .addAction(new Notification.Action.Builder(null,"Recusar",action(id,"rejected")).build());
+            try {manager.notify(id,8200,notification.build());} catch(SecurityException ignored){}
+            handler.postDelayed(()->{pending.remove(id);manager.cancel(id,8200);},remaining);
+        });
+    }
+    private PendingIntent action(String id,String answer) {
+        Intent intent=new Intent(service,LocationService.class).setAction("respond").setData(android.net.Uri.parse("zap://pickup/"+id+"/"+answer)).putExtra("id",id).putExtra("answer",answer);
+        return PendingIntent.getService(service,0,intent,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+    void respond(String id,String answer) {
+        if (!socket.connected() || stopping) return;
+        JSONObject body=json("id",id);try {body.put("answer",answer);}catch(JSONException ignored){}
+        socket.emit("pickup:respond",body,(Ack) args -> {JSONObject call=object(args).optJSONObject("data");if(call!=null)receive(call);});
+    }
+    void stopDuty() {
+        stopping=true;
+        if (socket.connected()) socket.emit("duty:set",json("onDuty",false),(Ack) args->handler.post(service::stopSelf));
+        handler.postDelayed(service::stopSelf,3000);
+    }
+    void close() {
+        stopping=true;handler.removeCallbacksAndMessages(null);
+        socket.off();socket.disconnect();
+        for(String id:pending.keySet())service.getSystemService(NotificationManager.class).cancel(id,8200);
+        pending.clear();
+    }
+}

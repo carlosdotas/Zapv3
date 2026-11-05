@@ -29,7 +29,7 @@ function App() {
             <a className="primary-button primary-button--orange" href={registerUrl}>Quero ser motorista parceiro <Icon name="bike" size={18} /></a>
           </div>
           <section className="download-panel" id="downloads" aria-labelledby="downloads-title">
-            <div className="download-panel__heading"><span className="download-panel__eyebrow">Aplicativos para testar</span><h2 id="downloads-title">Baixe o app do seu perfil</h2><p>Escolha o aplicativo certo para sua operação.</p></div>
+            <div className="download-panel__heading"><span className="download-panel__eyebrow">Aplicativos para testar</span><h2 id="downloads-title">Baixe o app do seu perfil</h2><p>Escolha o aplicativo certo para sua operação.</p><p>Versão de teste 0.2.0 para Android 8 ou superior. Se o Android recusar a atualização por assinatura, desinstale a versão antiga antes de instalar esta versão.</p></div>
             <div className="download-panel__actions">
               <a className="download-option download-option--blue" href={motoristaDownloadUrl} download="encomendaszap-motorista.apk"><span className="download-option__icon"><Icon name="bike" size={20} /></span><span><strong>Motorista</strong><small>Baixar APK</small></span><Icon name="download" size={17} /></a>
               <a className="download-option download-option--orange" href={transportadoraDownloadUrl} download="encomendaszap-transportadora.apk"><span className="download-option__icon"><Icon name="building" size={20} /></span><span><strong>Transportadora</strong><small>Baixar APK</small></span><Icon name="download" size={17} /></a>

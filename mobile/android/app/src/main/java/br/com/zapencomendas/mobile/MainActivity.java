@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
     private static final int CONTACT_PERMISSION_CODE = 4105;
     private static final String ALERT_CHANNEL_ID = "zap_alerts";
 
+    private String dutyToken;
     private WebView webView;
     private boolean startLocationAfterPermission = false;
     private long lastBackPressedAt = 0L;
@@ -103,7 +104,7 @@ public class MainActivity extends Activity {
 
     private boolean handleExternalUrl(Uri uri) {
         if (uri == null || uri.getScheme() == null) return false;
-        String scheme = uri.getScheme().toLowerCase();
+        String scheme = uri.getScheme().toLowerCase(java.util.Locale.ROOT);
         if ("tel".equals(scheme)) {
             openDialer(uri.getSchemeSpecificPart());
             return true;
@@ -112,14 +113,30 @@ public class MainActivity extends Activity {
             try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) {}
             return true;
         }
-        return false;
+        if ("https".equals(scheme) && Uri.parse(BuildConfig.WEB_URL).getHost().equals(uri.getHost())) return false;
+        if ("https".equals(scheme) || "http".equals(scheme)) {
+            try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) {}
+        }
+        return true;
     }
 
     private void injectMobileHelpers(WebView view) {
         view.evaluateJavascript("(function(){window.ZapMobile=window.ZapMobile||{};window.ZapMobile.isNative=true;})();", null);
     }
 
+    public void startDuty(String token) {
+        if (!"motorista".equals(BuildConfig.FLAVOR) || token == null || token.length() > 2048) return;
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestNotificationPermission();
+            showToast("Autorize as notificações e toque novamente em Entrar em serviço.");
+            return;
+        }
+        dutyToken = token;
+        requestLocationFromWeb();
+    }
+
     public void requestLocationFromWeb() {
+        if (dutyToken == null) { showToast("Use Entrar em serviço para ativar a localização."); return; }
         boolean granted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         if (!granted) {
@@ -132,18 +149,16 @@ public class MainActivity extends Activity {
     }
 
     public void stopLocationFromWeb() {
-        stopService(new Intent(this, LocationService.class));
+        if (LocationService.running) startService(new Intent(this, LocationService.class).setAction("stop"));
+        dutyToken = null;
         showToast("Localização pausada.");
     }
 
     private void startLocationService() {
-        Intent serviceIntent = new Intent(this, LocationService.class);
+        Intent serviceIntent = new Intent(this, LocationService.class).putExtra("token", dutyToken);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent);
         else startService(serviceIntent);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-            && checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, BACKGROUND_LOCATION_CODE);
-        }
+
     }
 
     public void showLocalNotification(String title, String message) {
@@ -155,7 +170,7 @@ public class MainActivity extends Activity {
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 4201, intent, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification notification = new Notification.Builder(this, ALERT_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher)
-            .setContentTitle(title == null || title.isBlank() ? "EncomendasZap" : title)
+            .setContentTitle(title == null || title.trim().isEmpty() ? "EncomendasZap" : title)
             .setContentText(message == null ? "" : message)
             .setAutoCancel(true)
             .setPriority(Notification.PRIORITY_HIGH)
@@ -177,7 +192,7 @@ public class MainActivity extends Activity {
     public void openDialer(String phone) {
         if (phone == null) return;
         String clean = phone.replaceAll("[^+0-9]", "");
-        if (clean.isBlank()) return;
+        if (clean.trim().isEmpty()) return;
         try { startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + clean))); }
         catch (Exception ignored) { showToast("Não foi possível abrir o telefone."); }
     }

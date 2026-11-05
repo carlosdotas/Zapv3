@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { AuthShell, Field, PasswordField } from './auth-shell.js';
 import { Icon } from './icons.js';
 import { MobileTools } from './mobile-tools.js';
@@ -9,6 +9,7 @@ type Authenticated = { user: { name: string } };
 type Portal = 'company' | 'professional' | 'admin';
 type Props = {
   portal: Portal;
+  renderAuthenticated?: (signOut: () => void) => ReactNode;
   onLogin: (input: Credentials) => Promise<Authenticated>;
   onRegister?: (input: Registration) => Promise<Authenticated>;
   registerHref?: string;
@@ -30,7 +31,7 @@ function formatPhone(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, split)}-${digits.slice(split)}`;
 }
 
-export function Authentication({ portal, onLogin, onRegister, registerHref = '/profissional/#cadastro', homeHref = '/' }: Props) {
+export function Authentication({ portal, onLogin, onRegister, registerHref = '/profissional/#cadastro', homeHref = '/', renderAuthenticated }: Props) {
   const [mode, setMode] = useState<'login' | 'register'>(() => onRegister && window.location.hash === '#cadastro' ? 'register' : 'login');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -80,6 +81,8 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
   }
 
   function signOut() { setUserName(''); setPassword(''); switchMode('login'); }
+
+  if (userName && renderAuthenticated) return <>{renderAuthenticated(signOut)}</>;
 
   const description = userName ? 'Acesso confirmado à sua conta'
     : registration ? 'Cadastro de motorista parceiro'

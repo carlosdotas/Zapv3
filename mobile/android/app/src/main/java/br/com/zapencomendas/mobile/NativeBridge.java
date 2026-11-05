@@ -16,10 +16,13 @@ public final class NativeBridge {
     public String getAppProfile() { return "motorista".equals(BuildConfig.FLAVOR) ? "motorista" : "transportadora"; }
 
     @JavascriptInterface
-    public void requestLocation() { activity.requestLocationFromWeb(); }
+    public void startDuty(String token) { activity.runOnUiThread(() -> activity.startDuty(token)); }
 
     @JavascriptInterface
-    public void stopLocation() { activity.stopLocationFromWeb(); }
+    public void requestLocation() { activity.runOnUiThread(() -> activity.requestLocationFromWeb()); }
+
+    @JavascriptInterface
+    public void stopLocation() { activity.runOnUiThread(() -> activity.stopLocationFromWeb()); }
 
     @JavascriptInterface
     public boolean isLocationRunning() { return LocationService.running; }

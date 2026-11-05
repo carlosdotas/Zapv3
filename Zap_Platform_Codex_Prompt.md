@@ -33,6 +33,11 @@
 20. Use `MapsProvider`, `GeocodingProvider`, `PushProvider`, `StorageProvider` interfaces; configurable adapters, no fake credentials. Store private uploads outside public web roots and SQL only as metadata.
 21. Web push/PWA background ringing and GPS may be OS-limited: test on real devices; do NOT promise persistent background behavior. Document native wrapper/app path if required.
 
+### Existing native Android build (verified 2026-11-05)
+- Preserve `mobile/android`, its Java Foreground Service and the `motorista` / `transportadora` flavors. Use the Gradle Wrapper through `npm run build:mobile`; the existing sync script preserves `/downloads/encomendaszap-motorista.apk` and `/downloads/encomendaszap-transportadora.apk`.
+- This session's toolchain is now installed: Android SDK 35 at `/workspace/android-sdk`, JDK 17 at `/workspace/jdk17`, Gradle cache at `/workspace/gradle-cache`, Android user configuration at `/workspace/android-user/.android`. See `docs/OPERATIONS.md` for the verified command and proxy trust settings. These paths describe this workspace; verify their existence in a new environment before assuming readiness.
+- Reuse this toolchain and the native project. Never promise delivery with the phone powered off or after force-stop/process termination. Physical-device checks remain required for background GPS, sound/vibration and Android restrictions.
+
 ## 4. Required repository layout
 ```text
 AGENTS.md                 README.md             .env.example

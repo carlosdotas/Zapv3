@@ -26,6 +26,7 @@ public class LocationService extends Service implements LocationListener {
     public static volatile long updatedAt = 0L;
     public static volatile boolean running = false;
 
+    private DutyConnection connection;
     private LocationManager locationManager;
 
     @Override
@@ -77,10 +78,10 @@ public class LocationService extends Service implements LocationListener {
         if (locationManager == null) return;
         try {
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 10f, this, Looper.getMainLooper());
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000L, 10f, this, Looper.getMainLooper());
             }
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 10000L, 25f, this, Looper.getMainLooper());
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 30000L, 25f, this, Looper.getMainLooper());
             }
         } catch (SecurityException ignored) {
             stopSelf();
@@ -89,8 +90,20 @@ public class LocationService extends Service implements LocationListener {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!running) startLocationUpdates();
-        return START_STICKY;
+        if (intent != null && "stop".equals(intent.getAction())) {
+            if (locationManager != null) locationManager.removeUpdates(this);
+            if (connection != null) connection.stopDuty(); else stopSelf();
+            return START_NOT_STICKY;
+        }
+        if (intent != null && "respond".equals(intent.getAction())) {
+            if (connection != null) connection.respond(intent.getStringExtra("id"), intent.getStringExtra("answer"));
+            return START_NOT_STICKY;
+        }
+        String token = intent == null ? null : intent.getStringExtra("token");
+        if (token == null) { stopSelf(); return START_NOT_STICKY; }
+        if (connection != null) connection.close();
+        connection = new DutyConnection(this, token);
+        return START_NOT_STICKY;
     }
 
     @Override
@@ -98,7 +111,8 @@ public class LocationService extends Service implements LocationListener {
         latitude = location.getLatitude();
         longitude = location.getLongitude();
         accuracy = location.hasAccuracy() ? location.getAccuracy() : 0.0f;
-        updatedAt = System.currentTimeMillis();
+        updatedAt = location.getTime();
+        if (connection != null) connection.location(location);
     }
 
     @Override
@@ -110,6 +124,7 @@ public class LocationService extends Service implements LocationListener {
 
     @Override
     public void onDestroy() {
+        if (connection != null) connection.close();
         if (locationManager != null) locationManager.removeUpdates(this);
         running = false;
         stopForeground(STOP_FOREGROUND_REMOVE);

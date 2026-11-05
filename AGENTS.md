@@ -7,6 +7,7 @@ This repository follows the authoritative architecture contract in [`Zap_Platfor
 - `services/api`: Node.js LTS, TypeScript and Fastify modular monolith (`/api/v1`).
 - `apps/home-web`: public React/Vite/TypeScript delivery landing page.
 - `apps/admin-web`, `apps/company-web`, `apps/professional-web`: independent React/Vite/TypeScript operational applications.
+- `mobile/android`: existing native Java Android app, `motorista` and `transportadora` flavors; Gradle Wrapper. Build instructions and verified toolchain paths: `docs/OPERATIONS.md`.
 - `packages`: shared contracts, API client and UI primitives.
 - `database/migrations`, `database/seeds`: versioned Hostinger-compatible MySQL/MariaDB SQL.
 - `docs`: architecture, domain, database, API, security, operations, decisions and tasks.
@@ -37,6 +38,7 @@ npm run typecheck
 npm test
 npm run build
 npm run dev:api
+npm run build:mobile
 ```
 
 Priority: maintain architectural consistency, minimize AI token usage, preserve existing functionality and resource efficiency.
