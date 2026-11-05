@@ -1,0 +1,16 @@
+---
+description: Zap Platform architecture and delivery rules
+globs: "**/*"
+alwaysApply: true
+---
+
+# Zap Platform rules
+
+Read [`AGENTS.md`](../../AGENTS.md) and [`Zap_Platform_Codex_Prompt.md`](../../Zap_Platform_Codex_Prompt.md) before planning or changing code. The latter is the authoritative contract.
+
+- Preserve the Node.js/TypeScript Fastify modular monolith, React/Vite apps, Hostinger-compatible SQL migrations and existing module boundaries.
+- Respect RBAC and tenant isolation for `platform_admin`, `company_admin`, `attendant` and `professional`.
+- Keep SQL behind the API; avoid new frameworks, dependencies, services, caches and oversized files.
+- Keep all user-facing content in natural Brazilian Portuguese (`pt-BR`).
+- Make scoped changes, run relevant checks/tests, and report changed files and pending issues.
+- Never perform destructive database operations without explicit approval.
