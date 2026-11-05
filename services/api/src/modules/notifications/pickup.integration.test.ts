@@ -16,16 +16,17 @@ beforeAll(async()=>{
  if(!enabled)return;
  const url=new URL(process.env.ZAP_TEST_DATABASE_URL!);if(!url.pathname.startsWith('/zap_test'))throw new Error('Use um banco de teste zap_test.');
  admin=mysql.createPool(url.toString());await admin.query('CREATE DATABASE `'+database+'`');url.pathname='/'+database;pool=mysql.createPool(url.toString());store=new PickupStore(pool);
- for(const file of ['002_identity_bootstrap.sql','003_pickup_calls.sql'])for(const sql of (await readFile(`../../database/migrations/${file}`,'utf8')).split(';').map(s=>s.trim()).filter(Boolean))await pool.query(sql);
+ for(const file of ['002_identity_bootstrap.sql','003_pickup_calls.sql','004_pickup_self_test.sql'])for(const sql of (await readFile(`../../database/migrations/${file}`,'utf8')).split(';').map(s=>s.trim()).filter(Boolean))await pool.query(sql);
  await pool.query(`INSERT INTO roles (id,code) VALUES ('r-company','company_admin'),('r-professional','professional'),('r-platform','platform_admin')`);
  for(const id of ['company-user','other-company-user','pro','outsider','platform-admin']) {
-  await pool.execute('INSERT INTO users (id,name,phone_e164,password_hash) VALUES (?,?,?,?)',[id,id,id,'unused']);
-  identity.users.set(id,{id,name:id,phone:id,passwordHash:'unused',roles:id.includes('company')?['company_admin']:['professional'],companyIds:[],status:'active'});
+  const phone=id==='platform-admin'?'+5562999999999':id;
+  await pool.execute('INSERT INTO users (id,name,phone_e164,password_hash) VALUES (?,?,?,?)',[id,id,phone,'unused']);
+  identity.users.set(id,{id,name:id,phone,passwordHash:'unused',roles:id==='platform-admin'?['platform_admin','professional']:id.includes('company')?['company_admin']:['professional'],companyIds:[],status:'active'});
  }
- await pool.query(`INSERT INTO user_global_roles (user_id,role_id) VALUES ('pro','r-professional'),('outsider','r-professional'),('platform-admin','r-platform')`);
+ await pool.query(`INSERT INTO user_global_roles (user_id,role_id) VALUES ('pro','r-professional'),('outsider','r-professional'),('platform-admin','r-platform'),('platform-admin','r-professional')`);
  await pool.query(`INSERT INTO companies (id,name) VALUES ('company','Empresa'),('other','Outra empresa')`);
  await pool.query(`INSERT INTO company_members (id,company_id,user_id,role_id) VALUES ('member','company','company-user','r-company'),('other-member','other','other-company-user','r-company')`);
- await pool.query(`INSERT INTO professional_profiles (user_id) VALUES ('pro'),('outsider')`);
+ await pool.query(`INSERT INTO professional_profiles (user_id) VALUES ('pro'),('outsider'),('platform-admin')`);
  await pool.query(`INSERT INTO company_professionals (company_id,professional_user_id) VALUES ('company','pro')`);
  await store.duty('pro',true);
  app=Fastify();registerRealtime(app,identity,store,secret,[]);base=await app.listen({port:0,host:'127.0.0.1'});
@@ -52,6 +53,21 @@ test.skipIf(!enabled)('SQL: tenant isolation, target validation, atomic response
  const abandoned=await store.create('company-user','company','pro');await pool.execute('UPDATE pickup_test_calls SET expires_at=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND WHERE id=?',[abandoned.id]);
  expect((await store.expire()).some(c=>c.id===abandoned.id&&c.status==='expired')).toBe(true);
  expect(await store.expire()).toHaveLength(0);
+});
+test.skipIf(!enabled)('administrador prepara teste idempotente e chama o próprio telefone',async()=>{
+ const admin=await connect('platform-admin');const driver=await connect('platform-admin');const other=await connect('company-user');
+ expect((await emit(other,'pickup:setup-self-test')).error).toBeTruthy();
+ const [first,second]=await Promise.all([emit(admin,'pickup:setup-self-test'),emit(driver,'pickup:setup-self-test')]);
+ expect(first.error).toBeUndefined();expect(second.data.companyId).toBe(first.data.companyId);
+ expect(first.data.professionalId).toBe('platform-admin');expect(first.data.phone).toBe('+5562999999999');
+ const [setups]=await pool.query<any[]>("SELECT * FROM pickup_self_test_setups WHERE admin_user_id='platform-admin'");expect(setups).toHaveLength(1);
+ expect((await emit(driver,'duty:set',{onDuty:true})).error).toBeUndefined();
+ const received=new Promise<any>(resolve=>driver.once('pickup:updated',resolve));
+ const call=await emit(admin,'pickup:create',{companyId:first.data.companyId,professionalId:first.data.professionalId});
+ expect(call.error).toBeUndefined();expect((await received).id).toBe(call.data.id);
+ expect((await emit(driver,'pickup:respond',{id:call.data.id,answer:'accepted'})).data.status).toBe('accepted');
+ await pool.execute("UPDATE company_professionals SET status='revoked' WHERE company_id=? AND professional_user_id='platform-admin'",[first.data.companyId]);
+ expect((await emit(admin,'pickup:setup-self-test')).error).toContain('inativa');
 });
 test.skipIf(!enabled)('Socket.IO: authenticated delivery, reconnect recovery, tenant rejection and GPS consent',async()=>{
  await expect(connect('pro','invalid')).rejects.toThrow();

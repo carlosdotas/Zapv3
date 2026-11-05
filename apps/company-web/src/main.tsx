@@ -13,6 +13,6 @@ const { signIn } = createAuthActions(apiUrl);
 function Application() {
   const [session,setSession]=useState<LoginResult>();
   const authenticate=async(input:{phone:string;password:string})=>{const result=await signIn(input);setSession(result);return result;};
-  return <Authentication portal="company" onLogin={authenticate} registerHref={registrationUrl(import.meta.env.VITE_PROFESSIONAL_URL)} homeHref={homeUrl()} renderAuthenticated={signOut=>session && <Dashboard apiUrl={apiUrl} token={session.token} onLogout={()=>{setSession(undefined);signOut();}} />} />;
+  return <Authentication portal="company" onLogin={authenticate} registerHref={registrationUrl(import.meta.env.VITE_PROFESSIONAL_URL)} homeHref={homeUrl()} renderAuthenticated={signOut=>session && <Dashboard apiUrl={apiUrl} token={session.token} user={session.user} onLogout={()=>{setSession(undefined);signOut();}} />} />;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><Application /></StrictMode>);

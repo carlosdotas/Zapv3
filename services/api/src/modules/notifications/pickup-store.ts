@@ -18,7 +18,28 @@ export class PickupStore {
   }
   async professionals(userId: string, companyId: string) {
     await this.company(userId,companyId);
-    const [rows] = await this.pool.execute<RowDataPacket[]>(`SELECT u.id,u.name,(d.on_duty=1 AND d.last_seen_at>UTC_TIMESTAMP(3)-INTERVAL 90 SECOND) AS online FROM company_professionals cp JOIN users u ON u.id=cp.professional_user_id JOIN professional_profiles p ON p.user_id=u.id LEFT JOIN professional_duty d ON d.user_id=u.id WHERE cp.company_id=? AND cp.status='active' AND u.status='active' LIMIT 200`,[companyId]); return rows;
+    const [rows] = await this.pool.execute<RowDataPacket[]>(`SELECT u.id,u.name,u.phone_e164 AS phone,(d.on_duty=1 AND d.last_seen_at>UTC_TIMESTAMP(3)-INTERVAL 90 SECOND) AS online FROM company_professionals cp JOIN users u ON u.id=cp.professional_user_id JOIN professional_profiles p ON p.user_id=u.id LEFT JOIN professional_duty d ON d.user_id=u.id WHERE cp.company_id=? AND cp.status='active' AND u.status='active' ORDER BY u.name LIMIT 200`,[companyId]); return rows;
+  }
+  async setupSelfTest(userId: string) {
+    const db = await this.pool.getConnection();
+    try {
+      await db.beginTransaction();
+      const [users] = await db.execute<RowDataPacket[]>(`SELECT u.id,u.phone_e164 FROM users u JOIN professional_profiles p ON p.user_id=u.id WHERE u.id=? AND u.status='active' AND EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='platform_admin') AND EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='professional') FOR UPDATE`,[userId]);
+      if (!users.length) throw new Error('FORBIDDEN');
+      const [existing] = await db.execute<RowDataPacket[]>(`SELECT s.company_id,c.status AS company_status,cp.status AS link_status FROM pickup_self_test_setups s JOIN companies c ON c.id=s.company_id LEFT JOIN company_professionals cp ON cp.company_id=c.id AND cp.professional_user_id=s.admin_user_id WHERE s.admin_user_id=?`,[userId]);
+      let companyId: string;
+      if (existing.length) {
+        if (existing[0].company_status !== 'active' || existing[0].link_status !== 'active') throw new Error('SETUP_INACTIVE');
+        companyId = String(existing[0].company_id);
+      } else {
+        companyId = randomUUID();
+        await db.execute('INSERT INTO companies (id,name) VALUES (?,?)',[companyId,'Transportadora de teste']);
+        await db.execute('INSERT INTO company_professionals (company_id,professional_user_id) VALUES (?,?)',[companyId,userId]);
+        await db.execute('INSERT INTO pickup_self_test_setups (admin_user_id,company_id) VALUES (?,?)',[userId,companyId]);
+      }
+      await db.commit();
+      return { companyId, professionalId: userId, phone: String(users[0].phone_e164) };
+    } catch(e) { await db.rollback(); throw e; } finally { db.release(); }
   }
   async create(userId: string, companyId: string, professionalId: string) {
     const db = await this.pool.getConnection();

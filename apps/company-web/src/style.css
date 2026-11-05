@@ -1,1 +1,38 @@
 @import url('../../auth.css');
+
+.company-page { position: relative; min-height: 100vh; min-height: 100dvh; padding: 20px 16px 40px; }
+.company-header { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1000px; margin: 0 auto; }
+.company-header .zap-brand__name { color: #fff; }
+.company-header > button { flex-shrink: 0; padding: 10px 12px; border: 1px solid #ffffff55; border-radius: 8px; background: #ffffff14; color: #fff; font-size: 12px; font-weight: 800; }
+.company-main { position: relative; width: 100%; max-width: 640px; margin: 32px auto 0; }
+.company-card { padding: 28px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; box-shadow: 0 25px 50px -12px #0006; }
+.company-card__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.company-eyebrow { color: #0b5187; font-size: 11px; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; }
+.company-card h1 { margin: 5px 0; color: #0f172a; font-size: 26px; line-height: 1.2; }
+.company-card__heading p, .company-instructions p, .company-self-test p { margin: 6px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
+.company-connection, .company-driver-status { display: inline-flex; align-items: center; gap: 7px; color: #9a3412; font-size: 11px; font-weight: 800; }
+.company-connection { flex-shrink: 0; padding: 7px 9px; border-radius: 20px; background: #fff7ed; }
+.company-connection span, .company-driver-status span { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: #f97316; }
+.company-connection--online, .company-driver-status--online { color: #047857; }
+.company-connection--online { background: #ecfdf5; }
+.company-connection--online span, .company-driver-status--online span { background: #10b981; }
+.company-instructions, .company-self-test { margin-top: 22px; padding: 14px 16px; border: 1px solid #dbeafe; border-radius: 10px; background: #f8fbff; }
+.company-instructions strong, .company-self-test strong { color: #0f172a; font-size: 13px; }
+.company-self-test { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-color: #fed7aa; background: #fff7ed; }
+.company-self-test button { flex-shrink: 0; padding: 10px 12px; border: 1px solid #ff5e00; border-radius: 8px; background: #fff; color: #c2410c; font-size: 12px; font-weight: 900; }
+.company-field { display: block; margin-top: 20px; color: #334155; font-size: 12px; font-weight: 900; }
+.company-field select, .company-field input { display: block; width: 100%; min-height: 48px; margin-top: 7px; padding: 10px 12px; border: 2px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #0f172a; font: inherit; font-size: 14px; }
+.company-field input:focus, .company-field select:focus { border-color: #0b5187; outline: none; background: #fff; }
+.company-field input:disabled, .company-field select:disabled { opacity: .6; }
+.company-hint { margin: 7px 0 0; color: #64748b; font-size: 12px; line-height: 1.5; }
+.company-driver-status { display: flex; margin-top: 12px; line-height: 1.5; }
+.company-refresh { margin: 12px 0 0; padding: 4px 0; border: 0; background: none; color: #0b5187; font-size: 12px; font-weight: 800; }
+.company-send { margin-top: 16px; font-size: 14px; }
+.company-message { margin: 14px 0 0; padding: 12px; border-radius: 8px; background: #eff6ff; color: #0b5187; font-size: 12px; line-height: 1.5; font-weight: 700; }
+.company-history { margin-top: 26px; padding-top: 18px; border-top: 1px solid #e2e8f0; }
+.company-history h2 { margin: 0; color: #334155; font-size: 14px; }
+.company-history p { margin: 9px 0 0; color: #94a3b8; font-size: 12px; }
+.company-history ul { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.company-history li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 8px; background: #f8fafc; color: #334155; font-size: 12px; font-weight: 800; }
+.company-history small { color: #64748b; }
+@media (max-width: 480px) { .company-page { padding: 16px 12px 28px; } .company-header .zap-brand__name { font-size: 16px; } .company-main { margin-top: 20px; } .company-card { padding: 20px 16px; } .company-card__heading, .company-self-test { flex-direction: column; } .company-self-test button { width: 100%; } }
