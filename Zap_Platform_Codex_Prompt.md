@@ -16,7 +16,7 @@
 
 ## 2. Business scope
 7. Pilot: 3 companies and 4 independent delivery professionals; mobile-first dispatch replacing unclear WhatsApp pickup instructions.
-8. Three independent React apps: platform administration, company operations, professional operations; later optional privacy-safe read-only TV map (NOT first milestone).
+8. Three independent operational React apps: platform administration, company operations, professional operations, plus a public React home for the delivery site; later optional privacy-safe read-only TV map (NOT first milestone).
 9. A user has ONE account/phone and MULTIPLE roles: `platform_admin`, `company_admin`, `attendant`, `professional`; roles may coexist. Only authorized admins assign elevated roles; self-registration grants professional only.
 10. Platform admin (Zap Encomendas) manages all; company admins manage their own company; attendants dispatch/monitor within permission; professionals work independently for multiple authorized companies.
 11. Initial registration is frictionless, with no mandatory manual professional approval; company memberships and trusted professional networks still require authorization.
@@ -26,7 +26,7 @@
 
 ## 3. Stack and deployment constraints
 15. Node.js LTS + TypeScript, npm workspaces; Fastify REST API (`/api/v1`) as a MODULAR MONOLITH, NOT distributed microservices. Realtime only where needed.
-16. React + Vite + TypeScript, separate mobile-first `apps/admin-web`, `apps/company-web`, `apps/professional-web`; shared types/API client and reusable UI only when justified.
+16. React + Vite + TypeScript, separate mobile-first `apps/admin-web`, `apps/company-web`, `apps/professional-web` and public `apps/home-web`; shared types/API client and reusable UI only when justified.
 17. SQL database hosted at Hostinger; NO Supabase, Firebase Database, Redis, external queue, or application-level cache initially. Backend alone connects to SQL; React never sees SQL credentials.
 18. Default to MySQL 8-compatible parameterized SQL and versioned migrations; verify Hostinger actually provides MySQL/MariaDB/PostgreSQL BEFORE choosing driver or running migrations. Document remote access, SSL, firewall, and Node hosting prerequisites; do not assume shared hosting runs Node.
 19. Favor indexes, pagination, selective queries, bounded GPS frequency, event-driven updates; avoid unnecessary geocoding/maps calls. Do not disable normal DB/browser internal caches.
@@ -36,7 +36,7 @@
 ## 4. Required repository layout
 ```text
 AGENTS.md                 README.md             .env.example
-apps/{admin-web,company-web,professional-web}/
+apps/{home-web,admin-web,company-web,professional-web}/
 services/api/src/{modules,infrastructure}/
 services/api/src/modules/{identity,companies,professionals,places,locations,orders,notifications,audit}/
 packages/{contracts,api-client,ui}/
@@ -71,11 +71,11 @@ tests/
 ## 7. First delivery milestone
 41. Scaffold workspaces, scripts, TypeScript, lint, tests, `.gitignore`, `.env.example`, docs and runnable Fastify `/health`.
 42. Implement initial SQL migrations, local compatible DB workflow, non-production seed, real authentication, role checks, admin-managed companies and `GET /me`.
-43. Build minimal REAL login and protected landing pages for all three React apps; do not generate dozens of mock screens.
+43. Build minimal REAL login and protected landing pages for the three operational React apps, plus the public home; do not generate dozens of mock screens.
 44. After foundation passes: implement saved place -> order -> direct offer -> atomic accept -> status/history as one verified vertical slice.
 45. Define GPS/maps/push/storage adapters; implement only what can be configured/tested. If Hostinger is unavailable, run local SQL and document deployment steps; do not claim remote setup succeeded.
 46. Tests: role escalation denial, cross-company isolation, order state transitions, concurrent acceptance, auth and API integration. Report exact commands and outcomes.
-47. Acceptance: reproducible install/build/test/dev commands; three independent apps + one API + versioned SQL; no frontend DB access; no public admin creation; concise next-task list.
+47. Acceptance: reproducible install/build/test/dev commands; public home, three independent operational apps, one API and versioned SQL; no frontend DB access; no public admin creation; concise next-task list.
 
 ## 8. Documentation lifecycle and token economy
 48. Contracts are LIVE but STABLE during pre-production. Do NOT update `.md` for routine bug fixes, UI tweaks, or internal refactors that preserve contracts.

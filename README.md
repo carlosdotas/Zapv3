@@ -1,6 +1,6 @@
 # Zap Platform
 
-Base inicial da plataforma Zap Encomendas: uma API Fastify e três frontends independentes.
+Base inicial da plataforma Zap Encomendas: uma API Fastify, uma home pública e três frontends operacionais independentes.
 
 ```bash
 npm install

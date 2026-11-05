@@ -5,7 +5,8 @@ This repository follows the authoritative architecture contract in [`Zap_Platfor
 ## Project map
 
 - `services/api`: Node.js LTS, TypeScript and Fastify modular monolith (`/api/v1`).
-- `apps/admin-web`, `apps/company-web`, `apps/professional-web`: independent React/Vite/TypeScript applications.
+- `apps/home-web`: public React/Vite/TypeScript delivery landing page.
+- `apps/admin-web`, `apps/company-web`, `apps/professional-web`: independent React/Vite/TypeScript operational applications.
 - `packages`: shared contracts, API client and UI primitives.
 - `database/migrations`, `database/seeds`: versioned Hostinger-compatible MySQL/MariaDB SQL.
 - `docs`: architecture, domain, database, API, security, operations, decisions and tasks.
