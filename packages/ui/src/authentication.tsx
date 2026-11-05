@@ -14,7 +14,7 @@ type Props = {
   homeHref?: string;
 };
 
-const portalLabels: Record<Portal, string> = { company: 'Portal da empresa', professional: 'Portal do profissional', admin: 'Administração' };
+const portalLabels: Record<Portal, string> = { company: 'Portal da transportadora', professional: 'Portal do motorista', admin: 'Administração' };
 
 function phoneDigits(value: string) {
   const digits = value.replace(/\D/g, '');
@@ -81,7 +81,7 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
   function signOut() { setUserName(''); setPassword(''); switchMode('login'); }
 
   const description = userName ? 'Acesso confirmado à sua conta'
-    : registration ? 'Cadastro de Profissional Parceiro'
+    : registration ? 'Cadastro de motorista parceiro'
       : 'Entre com seu telefone e senha para acessar';
 
   return <AuthShell description={description} variant={registration ? 'register' : 'login'} portal={portalLabels[portal]} homeHref={homeHref}
@@ -99,14 +99,14 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
       <Field label={registration ? 'Telefone celular / WhatsApp' : 'Telefone celular'} icon="phone"><input name="phone" type="tel" inputMode="tel" value={phone} onChange={event => setPhone(formatPhone(event.target.value))} placeholder="(62) 99999-9999" autoComplete="tel-national" required autoFocus={!registration} disabled={busy} /></Field>
       <PasswordField value={password} onChange={setPassword} registration={registration} disabled={busy} />
       <button className={`primary-button${registration ? ' primary-button--orange' : ''}`} type="submit" disabled={busy}>
-        {busy ? <><span className="button-spinner" aria-hidden="true" />{registration ? 'Cadastrando...' : 'Entrando...'}</> : <>{registration ? 'Concluir cadastro profissional' : 'Entrar no Sistema'}<Icon name="arrow-right" size={16} /></>}
+        {busy ? <><span className="button-spinner" aria-hidden="true" />{registration ? 'Cadastrando...' : 'Entrando...'}</> : <>{registration ? 'Concluir cadastro de motorista' : 'Entrar no Sistema'}<Icon name="arrow-right" size={16} /></>}
       </button>
       <div className="auth-switch">
         {registration ? <><span>Já tem uma conta? </span><button type="button" onClick={() => switchMode('login')} disabled={busy}>Fazer login</button></>
-          : <><span>Quer se cadastrar? </span>{onRegister ? <button type="button" className="auth-switch__register" onClick={() => switchMode('register')} disabled={busy}>Cadastrar</button> : <a className="auth-switch__register" href={registerHref}>Cadastrar como profissional</a>}</>}
+          : <><span>Quer se cadastrar? </span>{onRegister ? <button type="button" className="auth-switch__register" onClick={() => switchMode('register')} disabled={busy}>Cadastrar</button> : <a className="auth-switch__register" href={registerHref}>Cadastrar como motorista</a>}</>}
       </div>
-      {portal !== 'professional' && <p className="restricted-note"><Icon name="shield" size={14} />{portal === 'admin' ? 'Acessos administrativos são concedidos pela plataforma.' : 'O acesso da empresa é concedido pela equipe da Zap.'}</p>}
-      {registration && <p className="restricted-note"><Icon name="shield" size={14} />Cadastro exclusivo para profissionais de coleta e entrega.</p>}
+      {portal !== 'professional' && <p className="restricted-note"><Icon name="shield" size={14} />{portal === 'admin' ? 'Acessos administrativos são concedidos pela plataforma.' : 'O acesso da transportadora é concedido pela equipe da Zap.'}</p>}
+      {registration && <p className="restricted-note"><Icon name="shield" size={14} />Cadastro exclusivo para motoristas parceiros de coletas e entregas.</p>}
     </form>}
   </AuthShell>;
 }

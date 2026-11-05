@@ -21,7 +21,7 @@ export function AuthShell({ description, children, footer, back, variant = 'logi
   return <main className={`auth-page auth-page--${variant}`}>
     <MapBackdrop />
     <div className="auth-page__top"><a className="home-return" href={homeHref}><Icon name="arrow-left" size={16} /> Início</a><span>{portal}</span></div>
-    <section className="auth-card" aria-label={variant === 'register' ? 'Cadastro profissional' : portal}>
+    <section className="auth-card" aria-label={variant === 'register' ? 'Cadastro de motorista' : portal}>
       {back}
       <header className="auth-card__header">
         <h1><Brand /></h1>
