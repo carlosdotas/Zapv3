@@ -13,7 +13,7 @@ public final class NativeBridge {
     public boolean isNativeApp() { return true; }
 
     @JavascriptInterface
-    public String getAppProfile() { return BuildConfig.APPLICATION_ID.endsWith("motorista") ? "motorista" : "transportadora"; }
+    public String getAppProfile() { return "motorista".equals(BuildConfig.FLAVOR) ? "motorista" : "transportadora"; }
 
     @JavascriptInterface
     public void requestLocation() { activity.requestLocationFromWeb(); }
