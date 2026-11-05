@@ -12,3 +12,5 @@ mobile/android/build/
 mobile/android/app/build/
 mobile/android/local.properties
 *.apk
+!apps/home-web/public/downloads/
+!apps/home-web/public/downloads/*.apk

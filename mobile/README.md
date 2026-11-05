@@ -16,6 +16,14 @@ cd mobile/android
 ./gradlew assembleMotoristaDebug assembleTransportadoraDebug
 ```
 
+Para compilar e atualizar automaticamente os downloads da home pública, use na raiz do repositório:
+
+```bash
+npm run build:mobile
+```
+
+Esse comando copia os APKs atualizados para `apps/home-web/public/downloads/`. O build web raiz preserva esses arquivos no pacote público.
+
 Saídas:
 
 ```text

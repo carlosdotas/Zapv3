@@ -85,7 +85,7 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
     : registration ? 'Cadastro de motorista parceiro'
       : 'Entre com seu telefone e senha para acessar';
 
-  return <AuthShell description={description} variant={registration ? 'register' : 'login'} portal={portalLabels[portal]} homeHref={homeHref}
+  return <AuthShell description={description} variant={registration ? 'register' : 'login'} portal={portalLabels[portal]} homeHref={homeHref} showHomeLink={portal === 'admin' || registration}
     back={registration && !userName ? <button className="auth-back" type="button" disabled={busy} onClick={() => switchMode('login')}><Icon name="arrow-left" size={16} /> Voltar</button> : undefined}>
     {userName ? <section className="success-panel" aria-live="polite">
       <Icon name="check" size={48} />

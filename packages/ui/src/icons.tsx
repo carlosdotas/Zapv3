@@ -8,6 +8,7 @@ const paths = {
   'eye-off': <><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.8M6.6 6.6A18 18 0 0 0 2 12s3.5 7 10 7a11 11 0 0 0 5.4-1.4" /></>,
   'arrow-right': <path d="M5 12h14m-7-7 7 7-7 7" />,
   'arrow-left': <path d="M19 12H5m7 7-7-7 7-7" />,
+  download: <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />,
   'chevron-right': <path d="m9 18 6-6-6-6" />,
   alert: <><circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" /></>,
   check: <><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-6" /></>,

@@ -7,13 +7,15 @@ import './style.css';
 const companyUrl = import.meta.env.VITE_LOGIN_URL || portalUrl('company');
 const professionalUrl = import.meta.env.VITE_PROFESSIONAL_URL || portalUrl('professional');
 const registerUrl = registrationUrl(professionalUrl);
+const motoristaDownloadUrl = '/downloads/encomendaszap-motorista.apk';
+const transportadoraDownloadUrl = '/downloads/encomendaszap-transportadora.apk';
 
 function App() {
   return <div className="home-page">
     <MapBackdrop />
     <header className="home-header">
       <a className="home-brand-link" href="/" aria-label="EncomendasZap, página inicial"><Brand compact /></a>
-      <nav aria-label="Navegação principal"><a href={companyUrl}>Entrar <Icon name="arrow-right" size={16} /></a></nav>
+      <nav aria-label="Navegação principal"><a href="#downloads">Baixar aplicativos <Icon name="download" size={16} /></a></nav>
     </header>
 
     <main className="home-main">
@@ -23,10 +25,18 @@ function App() {
           <h1 id="welcome-title">Transportadoras<br /><span>e motoristas conectados.</span></h1>
           <p className="welcome-description">A EncomendasZap conecta transportadoras a motoristas parceiros para organizar coletas e entregas de encomendas.</p>
           <div className="welcome-actions">
-            <a className="primary-button" href={companyUrl}>Entrar no Sistema <Icon name="arrow-right" size={16} /></a>
+            <a className="primary-button" href="#downloads">Baixar aplicativos <Icon name="download" size={17} /></a>
             <a className="primary-button primary-button--orange" href={registerUrl}>Quero ser motorista parceiro <Icon name="bike" size={18} /></a>
           </div>
-          <div className="welcome-divider"><span>Escolha seu acesso</span></div>
+          <section className="download-panel" id="downloads" aria-labelledby="downloads-title">
+            <div className="download-panel__heading"><span className="download-panel__eyebrow">Aplicativos para testar</span><h2 id="downloads-title">Baixe o app do seu perfil</h2><p>Escolha o aplicativo certo para sua operação.</p></div>
+            <div className="download-panel__actions">
+              <a className="download-option download-option--blue" href={motoristaDownloadUrl} download="encomendaszap-motorista.apk"><span className="download-option__icon"><Icon name="bike" size={20} /></span><span><strong>Motorista</strong><small>Baixar APK</small></span><Icon name="download" size={17} /></a>
+              <a className="download-option download-option--orange" href={transportadoraDownloadUrl} download="encomendaszap-transportadora.apk"><span className="download-option__icon"><Icon name="building" size={20} /></span><span><strong>Transportadora</strong><small>Baixar APK</small></span><Icon name="download" size={17} /></a>
+            </div>
+            <p className="download-panel__note">Os arquivos são atualizados junto com a compilação dos aplicativos.</p>
+          </section>
+          <div className="welcome-divider"><span>Acesse pelo navegador</span></div>
           <div className="portal-links">
             <a href={companyUrl}><span className="portal-links__icon"><Icon name="building" size={19} /></span><span><strong>Sou transportadora</strong><small>Acessar minha operação</small></span><Icon name="chevron-right" size={16} /></a>
             <a href={professionalUrl}><span className="portal-links__icon portal-links__icon--orange"><Icon name="bike" size={20} /></span><span><strong>Sou motorista</strong><small>Entrar na minha conta</small></span><Icon name="chevron-right" size={16} /></a>

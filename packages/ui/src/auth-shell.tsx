@@ -9,7 +9,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   </span>;
 }
 
-export function AuthShell({ description, children, footer, back, variant = 'login', portal, homeHref = '/' }: {
+export function AuthShell({ description, children, footer, back, variant = 'login', portal, homeHref = '/', showHomeLink = true }: {
   description: string;
   children: ReactNode;
   footer?: ReactNode;
@@ -17,10 +17,11 @@ export function AuthShell({ description, children, footer, back, variant = 'logi
   variant?: 'login' | 'register';
   portal: string;
   homeHref?: string;
+  showHomeLink?: boolean;
 }) {
   return <main className={`auth-page auth-page--${variant}`}>
     <MapBackdrop />
-    <div className="auth-page__top"><a className="home-return" href={homeHref}><Icon name="arrow-left" size={16} /> Início</a><span>{portal}</span></div>
+    <div className="auth-page__top">{showHomeLink ? <a className="home-return" href={homeHref}><Icon name="arrow-left" size={16} /> Início</a> : <span /> }<span>{portal}</span></div>
     <section className="auth-card" aria-label={variant === 'register' ? 'Cadastro de motorista' : portal}>
       {back}
       <header className="auth-card__header">
