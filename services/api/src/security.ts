@@ -1,0 +1,7 @@
+import { randomBytes, randomUUID, scrypt as nodeScrypt, timingSafeEqual, createHmac } from 'node:crypto';
+import { promisify } from 'node:util';
+const scrypt = promisify(nodeScrypt);
+export async function hashPassword(password: string): Promise<string> { const salt = randomBytes(16); const key = await scrypt(password, salt, 64) as Buffer; return `scrypt$${salt.toString('base64')}$${key.toString('base64')}`; }
+export async function verifyPassword(password: string, encoded: string): Promise<boolean> { const [, saltText, keyText] = encoded.split('$'); if (!saltText || !keyText) return false; const key = await scrypt(password, Buffer.from(saltText, 'base64'), 64) as Buffer; const expected = Buffer.from(keyText, 'base64'); return expected.length === key.length && timingSafeEqual(expected, key); }
+export function sessionToken(userId: string, secret: string): string { const body = `${userId}.${Date.now() + 1000 * 60 * 60 * 12}.${randomUUID()}`; return `${body}.${createHmac('sha256', secret).update(body).digest('hex')}`; }
+export function sessionUser(token: string | undefined, secret: string): string | null { if (!token) return null; const parts = token.split('.'); if (parts.length !== 4) return null; const body = parts.slice(0, 3).join('.'); const signature = createHmac('sha256', secret).update(body).digest('hex'); if (signature !== parts[3] || Number(parts[1]) < Date.now()) return null; return parts[0]; }

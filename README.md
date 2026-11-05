@@ -1,1 +1,14 @@
-# Zapv3
+# Zap Platform
+
+Base inicial da plataforma Zap Encomendas: uma API Fastify e três frontends independentes.
+
+```bash
+npm install
+cp .env.example .env
+npm run typecheck
+npm test
+npm run build
+npm run dev:api
+```
+
+A API fica em `http://localhost:3000` e expõe `GET /health`. O banco Hostinger ainda precisa ser confirmado quanto a engine, acesso remoto, SSL e suporte a Node.

@@ -1,0 +1,4 @@
+type SessionUser = { id: string; name: string; roles: string[] };
+export type LoginResult = { token: string; user: SessionUser };
+export async function login(baseUrl: string, phone: string, password: string): Promise<LoginResult> { const response = await fetch(`${baseUrl}/api/v1/auth/login`, { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ phone, password }) }); if (!response.ok) throw new Error('LOGIN_FAILED'); return response.json() as Promise<LoginResult>; }
+export async function getMe(baseUrl: string, token: string): Promise<{user: SessionUser}> { const response = await fetch(`${baseUrl}/api/v1/me`, { headers: { authorization: `Bearer ${token}` } }); if (!response.ok) throw new Error('SESSION_INVALID'); return response.json() as Promise<{user: SessionUser}>; }
