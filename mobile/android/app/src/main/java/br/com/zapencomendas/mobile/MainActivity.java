@@ -165,8 +165,10 @@ public class MainActivity extends Activity {
     }
 
     public void stopLocationFromWeb() {
-        if (LocationService.running) startService(new Intent(this, LocationService.class).setAction("stop"));
         dutyToken = null;
+        startLocationAfterPermission = false;
+        if (LocationService.running) startService(new Intent(this, LocationService.class).setAction("stop"));
+        else stopService(new Intent(this, LocationService.class));
         showToast("Localização pausada.");
     }
 
@@ -264,7 +266,7 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_CODE && startLocationAfterPermission
+        if (requestCode == LOCATION_PERMISSION_CODE && startLocationAfterPermission && dutyToken != null
             && (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)) {
             startLocationAfterPermission = false;

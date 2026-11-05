@@ -28,7 +28,7 @@ final class DutyConnection {
     private final Runnable heartbeat = new Runnable() {
         public void run() {
             if (stopping) return;
-            if (socket.connected()) socket.emit("presence:heartbeat", new JSONObject(), (Ack) args -> {});
+            if (socket.connected()) socket.emit("presence:heartbeat", new JSONObject(), (Ack) args -> {if ("UNAUTHENTICATED".equals(object(args).optString("code"))) handler.post(service::stopSelf);});
             handler.postDelayed(this, 30000);
         }
     };
@@ -60,7 +60,7 @@ final class DutyConnection {
             });
         });
         socket.on("pickup:updated", args -> receive(object(args)));
-        socket.on(Socket.EVENT_CONNECT_ERROR, args -> { /* Reconnection is bounded by Socket.IO backoff. */ });
+        socket.on(Socket.EVENT_CONNECT_ERROR, args -> {if(args.length>0 && String.valueOf(args[0]).contains("Sessão inválida.")) handler.post(service::stopSelf);});
         socket.connect();
         handler.post(heartbeat);
     }

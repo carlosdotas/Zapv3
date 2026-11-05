@@ -60,6 +60,7 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
   function changeDuty(on:boolean) {
     if(on)enableSound();
     if(native){if(on)native.startDuty(token);else native.stopLocation();setDuty(on);setMessage(on?'Confira a notificação de serviço e as permissões do Android.':'Fora de serviço.');return;}
+    if(!on){setDuty(false);setLocation(null);}
     if(!socket?.connected){setMessage('Sem conexão. Aguarde a reconexão para alterar seu serviço.');return;}
     socket.emit('duty:set',{onDuty:on},(result:{error?:string})=>{if(result.error)setMessage(result.error);else{setDuty(on);setMessage('');}});
   }
@@ -70,7 +71,7 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
       setCalls(old=>[result.data!,...old.filter(item=>item.id!==result.data!.id)]);resolve(undefined);
     }));
   }
-  function logout(){changeDuty(false);onLogout();}
+  function logout(){if(!native)changeDuty(false);onLogout();}
   const notice=<>
     {urgentAccess==='denied' && <div className="driver-notice"><strong>Ative as chamadas em tela cheia</strong><p>Permita a exibição sobre a tela bloqueada nas configurações do Android.</p><button type="button" onClick={()=>native?.openUrgentCallSettings?.()}>Abrir configurações</button></div>}
     {urgentAccess==='update' && <div className="driver-notice"><p>Atualize o aplicativo do motorista para receber chamadas em tela cheia.</p></div>}

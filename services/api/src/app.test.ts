@@ -31,4 +31,16 @@ describe('API de identidade', () => {
 
   it('cadastra profissional e permite entrar e consultar /me', async () => { const app = buildApp(); const registered = await app.inject({ method: 'POST', url: '/api/v1/auth/register-professional', payload: { name: 'Ana Entregas', phone: '+5511888888888', password: 'SenhaSegura123' } }); expect(registered.statusCode).toBe(201); const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { phone: '+5511888888888', password: 'SenhaSegura123' } }); expect(login.statusCode).toBe(200); const token = login.json().token; const me = await app.inject({ method: 'GET', url: '/api/v1/me', headers: { authorization: `Bearer ${token}` } }); expect(me.statusCode).toBe(200); expect(me.json().user.roles).toContain('professional'); });
   it('recusa acesso sem sessão e escalação administrativa', async () => { const app = buildApp(); expect((await app.inject({ method: 'GET', url: '/api/v1/me' })).statusCode).toBe(401); const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { phone: '+5511999999999', password: 'Profissional123!' } }); const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/ping', headers: { authorization: `Bearer ${login.json().token}` } }); expect(denied.statusCode).toBe(403); });
+  it('mantém sessões independentes e revoga somente a sessão encerrada', async () => {
+    const app=buildApp();const credentials={phone:'+5511999999999',password:'Profissional123!'};
+    const first=(await app.inject({method:'POST',url:'/api/v1/auth/login',payload:credentials})).json().token;
+    const second=(await app.inject({method:'POST',url:'/api/v1/auth/login',payload:credentials})).json().token;
+    expect(first).not.toBe(second);
+    const headers={authorization:`Bearer ${first}`};
+    expect((await app.inject({method:'GET',url:'/api/v1/me',headers})).statusCode).toBe(200);
+    expect((await app.inject({method:'POST',url:'/api/v1/auth/logout',headers,payload:{portal:'professional'}})).statusCode).toBe(200);
+    expect((await app.inject({method:'GET',url:'/api/v1/me',headers})).statusCode).toBe(401);
+    expect((await app.inject({method:'GET',url:'/api/v1/me',headers:{authorization:`Bearer ${second}`}})).statusCode).toBe(200);
+    await app.close();
+  });
 });

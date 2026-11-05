@@ -1,15 +1,15 @@
 import { Server, type Socket } from 'socket.io';
 import type { FastifyInstance } from 'fastify';
 import type { IdentityStore } from '../../store.js';
-import { sessionUser } from '../../security.js';
+import { authenticateSession } from '../../session-auth.js';
 import type { PickupStore, Call } from './pickup-store.js';
 export function registerRealtime(app: FastifyInstance, identity: IdentityStore, store: PickupStore, secret: string, origins: string[]) {
   const io=new Server(app.server,{cors:{origin:origins},maxHttpBufferSize:8192,allowRequest:(request,callback)=>callback(null,!request.headers.origin || origins.includes(request.headers.origin))});
   const authenticate=async(token:string) => {
-    const id=sessionUser(token,secret); const user=id ? await identity.findById(id) : undefined;
-    if(!user || user.status!=='active') throw new Error('UNAUTHENTICATED'); return user;
+    const authenticated=await authenticateSession(identity,token,secret);
+    if(!authenticated) throw new Error('UNAUTHENTICATED'); return authenticated.user;
   };
-  io.use(async(socket,next)=>{try { await identity.ready; if(identity.callsReady) await identity.callsReady; socket.data.token=socket.handshake.auth.token; const user=await authenticate(socket.data.token); socket.data.userId=user.id; next(); } catch { next(new Error('Sessão inválida ou serviço indisponível.')); }});
+  io.use(async(socket,next)=>{try { await identity.ready; if(identity.callsReady) await identity.callsReady; socket.data.token=socket.handshake.auth.token; const user=await authenticate(socket.data.token); socket.data.userId=user.id; next(); } catch(error) { next(new Error((error as Error).message==='UNAUTHENTICATED'?'Sessão inválida.':'Serviço temporariamente indisponível.')); }});
   const publish=async(call:Call) => {
     for(const socket of io.sockets.sockets.values()) {
       try {
@@ -27,7 +27,7 @@ export function registerRealtime(app: FastifyInstance, identity: IdentityStore, 
       if(operations>=4) { ack({error:'Aguarde a conclusão da solicitação.'}); return; }
       operations++;
       try { const user=await authenticate(socket.data.token); if(professional && !user.roles.includes('professional')) throw new Error('FORBIDDEN'); ack({data:await work(user.id,body)}); }
-      catch(e) { const code=(e as Error).message; ack({error:code==='FORBIDDEN'?'Você não tem permissão para esta solicitação.':code==='UNAVAILABLE'?'Motorista fora de serviço ou indisponível.':code==='RATE_LIMIT'?'Aguarde 30 segundos antes de outra chamada.':code==='INVALID_DETAILS'?'Confira o nome, o endereço e a localização da coleta.':code==='SETUP_INACTIVE'?'A configuração de teste está inativa. Solicite a revisão do acesso.':'Não foi possível concluir a solicitação.'}); }
+      catch(e) { const code=(e as Error).message; ack({...(code==='UNAUTHENTICATED'?{code:'UNAUTHENTICATED'}:{}),error:code==='UNAUTHENTICATED'?'Sua sessão não está mais disponível.':code==='FORBIDDEN'?'Você não tem permissão para esta solicitação.':code==='UNAVAILABLE'?'Motorista fora de serviço ou indisponível.':code==='RATE_LIMIT'?'Aguarde 30 segundos antes de outra chamada.':code==='INVALID_DETAILS'?'Confira o nome, o endereço e a localização da coleta.':code==='SETUP_INACTIVE'?'A configuração de teste está inativa. Solicite a revisão do acesso.':'Não foi possível concluir a solicitação.'}); }
       finally { operations--; }
     });
     on('pickup:sync',id=>store.sync(id));

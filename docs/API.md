@@ -1,10 +1,10 @@
 # API
 
-Prefixo `/api/v1`. Erros seguem `{ error: { code, message, details? } }`. Rotas: `POST /auth/register-professional`, `POST /auth/login`, `GET /me`; `GET /health` é público.
+Prefixo `/api/v1`. Erros seguem `{ error: { code, message, details? } }`. Rotas: `POST /auth/register-professional`, `POST /auth/login`, `POST /auth/logout`, `GET /me`; `GET /health` é público. O logout recebe o token Bearer e `{portal}`; no portal `professional`, também encerra o serviço do motorista quando o módulo de chamadas está disponível.
 
 ## Pickup test calls (Socket.IO)
 
-The API process hosts Socket.IO at `/socket.io`, authenticating the existing expiring session via `auth.token`. Each action revalidates the active account and relevant role/membership. Platform administrators can access active companies; other company users are restricted to active memberships. Delivery and synchronization to a professional require an active company link and professional role. Acknowledgements use `{data}` or a pt-BR `{error}`. Browser origins must be in `CORS_ORIGINS`; native connections may omit Origin. Clients reconnect with backoff and call `pickup:sync` after every connection; no transport recovery bypasses authentication.
+The API process hosts Socket.IO at `/socket.io`, authenticating the existing expiring and revocable session via `auth.token`. Each action revalidates the session, active account and relevant role/membership. Platform administrators can access active companies; other company users are restricted to active memberships. Delivery and synchronization to a professional require an active company link and professional role. Acknowledgements use `{data}` or a pt-BR `{error}`. Browser origins must be in `CORS_ORIGINS`; native connections may omit Origin. Clients reconnect with backoff and call `pickup:sync` after every connection; no transport recovery bypasses authentication.
 
 - `company:list {}`: active company memberships with `company_admin`/`attendant` role.
 - `pickup:setup-self-test {}`: an active `platform_admin` who also has a professional profile may explicitly create or reuse a dedicated test company linked only to their own account; returns `{companyId,professionalId,phone}`. This action does not create an order or modify an existing company.

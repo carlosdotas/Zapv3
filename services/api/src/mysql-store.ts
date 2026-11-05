@@ -38,9 +38,11 @@ export class MysqlStore implements IdentityStore {
       const [lock] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('zap_identity_bootstrap', 30) AS acquired");
       if (lock[0]?.acquired !== 1) throw new Error('Não foi possível obter o bloqueio de inicialização da identidade.');
       locked = true;
-      const migration = await readFile(resolve(__dirname, 'migrations', '002_identity_bootstrap.sql'), 'utf8')
-        .catch(() => readFile(resolve(__dirname, '../../../database/migrations/002_identity_bootstrap.sql'), 'utf8'));
-      for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
+      for (const file of ['002_identity_bootstrap.sql', '006_auth_sessions.sql']) {
+        const migration = await readFile(resolve(__dirname, 'migrations', file), 'utf8')
+          .catch(() => readFile(resolve(__dirname, '../../../database/migrations', file), 'utf8'));
+        for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
+      }
       await this.bootstrap(connection);
     } finally {
       if (locked) await connection.query("SELECT RELEASE_LOCK('zap_identity_bootstrap')");
@@ -111,6 +113,32 @@ export class MysqlStore implements IdentityStore {
 
   async findByPhone(phone: string) { return this.find('phone_e164', phone); }
   async findById(id: string) { return this.find('id', id); }
+  async createSession(id: string, userId: string) {
+    await this.ready;
+    await this.pool.execute('INSERT INTO auth_sessions (id,user_id,expires_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 365 DAY)',[id,userId]);
+  }
+  async sessionValid(id: string, userId: string, legacy: boolean) {
+    await this.ready;
+    const [rows]=await this.pool.execute<RowDataPacket[]>('SELECT revoked_at,expires_at,expires_at<=UTC_TIMESTAMP() AS expired,expires_at<UTC_TIMESTAMP()+INTERVAL 335 DAY AS renew FROM auth_sessions WHERE id=? AND user_id=?',[id,userId]);
+    if(!rows.length)return legacy;
+    if(rows[0].revoked_at || rows[0].expired)return false;
+    if(rows[0].renew)await this.pool.execute('UPDATE auth_sessions SET expires_at=UTC_TIMESTAMP()+INTERVAL 365 DAY WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP()',[id,userId]);
+    return true;
+  }
+  async revokeSession(id: string, userId: string, stopDuty: boolean) {
+    await this.ready;
+    const callsAvailable=stopDuty ? await this.callsReady.then(()=>true,()=>false) : false;
+    const db=await this.pool.getConnection();
+    try {
+      await db.beginTransaction();
+      if(callsAvailable) {
+        await db.execute('UPDATE professional_duty SET on_duty=0,last_seen_at=UTC_TIMESTAMP(3) WHERE user_id=?',[userId]);
+        await db.execute("UPDATE professional_profiles SET availability='offline' WHERE user_id=?",[userId]);
+      }
+      await db.execute('INSERT INTO auth_sessions (id,user_id,expires_at,revoked_at) VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 365 DAY,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE revoked_at=IF(user_id=VALUES(user_id),COALESCE(revoked_at,UTC_TIMESTAMP()),revoked_at)',[id,userId]);
+      await db.commit();
+    } catch(error) { await db.rollback(); throw error; } finally { db.release(); }
+  }
   private async find(field: 'id' | 'phone_e164', value: string): Promise<User | undefined> {
     await this.ready;
     const [rows] = await this.pool.execute<UserRow[]>(`SELECT id, name, phone_e164, password_hash, status FROM users WHERE ${field} = ? LIMIT 1`, [value]);
