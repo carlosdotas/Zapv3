@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "workspaces": ["apps/*", "services/*", "packages/*"],
-  "scripts": {"dev:api":"tsx services/api/src/server.ts","build":"npm run build --workspace=@zap/contracts && npm run build --workspace=@zap/api-client && npm run build --workspace=@zap/ui && npm run build --workspace=@zap/admin-web && npm run build --workspace=@zap/company-web && npm run build --workspace=@zap/professional-web","test":"npm run test --workspaces","typecheck":"npm run typecheck --workspaces","lint":"npm run lint --workspaces"},
+  "scripts": {"dev:api":"tsx services/api/src/server.ts","start":"node services/api/dist/server.js","build":"npm run build --workspace=@zap/contracts && npm run build --workspace=@zap/api-client && npm run build --workspace=@zap/ui && npm run build --workspace=@zap/api && npm run build --workspace=@zap/admin-web && npm run build --workspace=@zap/company-web && npm run build --workspace=@zap/professional-web","test":"npm run test --workspaces","typecheck":"npm run typecheck --workspaces","lint":"npm run lint --workspaces"},
   "engines": {"node": ">=20"},
   "devDependencies": {"@types/node":"^22.10.2","tsx":"^4.19.2","typescript":"^5.7.2","vite":"^6.0.5","vitest":"^2.1.8"}
 }
