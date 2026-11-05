@@ -5,7 +5,7 @@ export function Shell({ title, children }: { title: string; children: ReactNode 
 }
 
 export function Brand({ compact = false }: { compact?: boolean }) {
-  return <div className={compact ? 'zap-brand zap-brand--compact' : 'zap-brand'}><span className="zap-brand__mark">Z</span><span>Encomendas<span className="zap-brand__accent">Zap</span></span></div>;
+  return <div className={compact ? 'zap-brand zap-brand--compact' : 'zap-brand'}><span className="zap-brand__mark"><img src="/logo.svg" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></span><span>Encomendas<span className="zap-brand__accent">Zap</span></span></div>;
 }
 
 export function AuthShell({
@@ -18,7 +18,7 @@ export function AuthShell({
   return <main className="auth-page"><div className="auth-page__glow" /><section className="auth-card">
     <header className="auth-card__header"><Brand /><p className="auth-eyebrow">{eyebrow}</p><h1>{title}</h1><p className="auth-description">{description}</p></header>
     <div className="auth-card__body">{children}</div>
-    {footer && <footer className="auth-card__footer">{footer}</footer>}
+    <footer className="auth-card__footer">{footer ?? 'EncomendasZap • Logística e entregas'}</footer>
   </section></main>;
 }
 

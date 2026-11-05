@@ -14,9 +14,11 @@ await rm(publicRoot, { force: true, recursive: true });
 await mkdir(publicRoot, { recursive: true });
 
 for (const [name, workspace] of Object.entries(applications)) {
+  const destination = path.join(publicRoot, name);
   await cp(
     path.join(repositoryRoot, 'apps', workspace, 'dist'),
-    path.join(publicRoot, name),
+    destination,
     { recursive: true }
   );
+  await cp(path.join(repositoryRoot, 'apps', 'home-web', 'dist', 'logo.svg'), path.join(destination, 'logo.svg'));
 }
