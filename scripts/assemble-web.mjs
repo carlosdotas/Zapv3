@@ -20,5 +20,4 @@ for (const [name, workspace] of Object.entries(applications)) {
     destination,
     { recursive: true }
   );
-  await cp(path.join(repositoryRoot, 'apps', 'home-web', 'dist', 'logo.svg'), path.join(destination, 'logo.svg'));
 }
