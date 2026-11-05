@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test, vi } from 'vitest';
 import mysql, { type Pool } from 'mysql2/promise';
 import { readFile } from 'node:fs/promises';
 import Fastify from 'fastify';
@@ -17,11 +17,12 @@ beforeAll(async()=>{
  const url=new URL(process.env.ZAP_TEST_DATABASE_URL!);if(!url.pathname.startsWith('/zap_test'))throw new Error('Use um banco de teste zap_test.');
  admin=mysql.createPool(url.toString());await admin.query('CREATE DATABASE `'+database+'`');url.pathname='/'+database;pool=mysql.createPool(url.toString());store=new PickupStore(pool);
  for(const file of ['002_identity_bootstrap.sql','003_pickup_calls.sql'])for(const sql of (await readFile(`../../database/migrations/${file}`,'utf8')).split(';').map(s=>s.trim()).filter(Boolean))await pool.query(sql);
- await pool.query(`INSERT INTO roles (id,code) VALUES ('r-company','company_admin'),('r-professional','professional')`);
- for(const id of ['company-user','other-company-user','pro','outsider']) {
+ await pool.query(`INSERT INTO roles (id,code) VALUES ('r-company','company_admin'),('r-professional','professional'),('r-platform','platform_admin')`);
+ for(const id of ['company-user','other-company-user','pro','outsider','platform-admin']) {
   await pool.execute('INSERT INTO users (id,name,phone_e164,password_hash) VALUES (?,?,?,?)',[id,id,id,'unused']);
   identity.users.set(id,{id,name:id,phone:id,passwordHash:'unused',roles:id.includes('company')?['company_admin']:['professional'],companyIds:[],status:'active'});
  }
+ await pool.query(`INSERT INTO user_global_roles (user_id,role_id) VALUES ('pro','r-professional'),('outsider','r-professional'),('platform-admin','r-platform')`);
  await pool.query(`INSERT INTO companies (id,name) VALUES ('company','Empresa'),('other','Outra empresa')`);
  await pool.query(`INSERT INTO company_members (id,company_id,user_id,role_id) VALUES ('member','company','company-user','r-company'),('other-member','other','other-company-user','r-company')`);
  await pool.query(`INSERT INTO professional_profiles (user_id) VALUES ('pro'),('outsider')`);
@@ -33,6 +34,8 @@ afterAll(async()=>{for(const s of sockets)s.disconnect();if(app)await app.close(
 function connect(user:string,token=sessionToken(user,secret)) {const socket=io(base,{auth:{token},reconnection:false});sockets.push(socket);return new Promise<Socket>((resolve,reject)=>{socket.once('connect',()=>resolve(socket));socket.once('connect_error',reject);});}
 function emit(s:Socket,event:string,body:unknown={}) {return new Promise<any>((resolve,reject)=>s.timeout(4000).emit(event,body,(err:any,r:any)=>err?reject(err):resolve(r)));}
 test.skipIf(!enabled)('SQL: tenant isolation, target validation, atomic response, history and server expiration',async()=>{
+ expect((await store.companies('platform-admin')).map(c=>c.id).sort()).toEqual(['company','other']);
+ await expect(store.company('platform-admin','company')).resolves.toBeUndefined();
  await expect(store.create('other-company-user','company','pro')).rejects.toThrow('FORBIDDEN');
  await expect(store.create('company-user','company','outsider')).rejects.toThrow('UNAVAILABLE');
  const call=await store.create('company-user','company','pro');
@@ -58,9 +61,34 @@ test.skipIf(!enabled)('Socket.IO: authenticated delivery, reconnect recovery, te
  const response=await emit(company,'pickup:create',{companyId:'company',professionalId:'pro'});expect(response.error).toBeUndefined();expect((await delivered).id).toBe(response.data.id);
  expect((await emit(other,'professional:list',{companyId:'company'})).error).toBeTruthy();
  professional.disconnect();const reconnect=await connect('pro');expect((await emit(reconnect,'pickup:sync')).data.some((c:any)=>c.id===response.data.id)).toBe(true);
+ await pool.query("UPDATE company_professionals SET status='revoked' WHERE company_id='company' AND professional_user_id='pro'");
+ expect(await store.canReceive('pro','company')).toBe(false);
+ expect((await emit(reconnect,'pickup:sync')).data.some((c:any)=>c.id===response.data.id)).toBe(false);
+ await expect(store.respond('pro',response.data.id,'accepted')).rejects.toThrow('FORBIDDEN');
+ await pool.query("UPDATE company_professionals SET status='active' WHERE company_id='company' AND professional_user_id='pro'");
  expect((await emit(reconnect,'location:update',{latitude:200,longitude:0,accuracy:5,recordedAt:new Date().toISOString()})).error).toBeTruthy();
  expect((await emit(reconnect,'location:update',{latitude:-16.6,longitude:-49.2,accuracy:5,recordedAt:new Date().toISOString()})).data.ok).toBe(true);
  await emit(reconnect,'duty:set',{onDuty:false});
  await store.location('pro',0,0,5,new Date(Date.now()+1000).toISOString());
  const [locations]=await pool.query<any[]>('SELECT latitude FROM professional_locations WHERE professional_user_id=?',['pro']);expect(Number(locations[0].latitude)).toBe(-16.6);
+ const driverEvent=vi.fn();reconnect.on('pickup:updated',driverEvent);
+ const companyExpiry=new Promise<any>(resolve=>company.on('pickup:updated',(call:any)=>{if(call.id===response.data.id && call.status==='expired')resolve(call);}));
+ await pool.query("UPDATE company_professionals SET status='revoked' WHERE company_id='company' AND professional_user_id='pro'");
+ await pool.execute('UPDATE pickup_test_calls SET expires_at=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND WHERE id=?',[response.data.id]);
+ await expect(companyExpiry).resolves.toMatchObject({id:response.data.id,status:'expired'});
+ expect(driverEvent).not.toHaveBeenCalled();
 });
+test.skipIf(!enabled)('Socket.IO: a chamada expira após 30 segundos reais',async()=>{
+ await pool.query("UPDATE company_professionals SET status='active' WHERE company_id='company' AND professional_user_id='pro'");
+ await pool.query('UPDATE pickup_test_calls SET created_at=UTC_TIMESTAMP(3)-INTERVAL 1 MINUTE');
+ await store.duty('pro',true);
+ const company=await connect('company-user');
+ let id='';
+ const expired=new Promise<any>(resolve=>company.on('pickup:updated',(call:any)=>{if(call.id===id && call.status==='expired')resolve(call);}));
+ const start=Date.now();
+ const created=await emit(company,'pickup:create',{companyId:'company',professionalId:'pro'});
+ expect(created.error).toBeUndefined();id=created.data.id;
+ await expect(expired).resolves.toMatchObject({id,status:'expired'});
+ expect(Date.now()-start).toBeGreaterThanOrEqual(29000);
+ expect(Date.now()-start).toBeLessThan(38000);
+},45000);

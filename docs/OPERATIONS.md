@@ -8,7 +8,7 @@ Para criar o primeiro administrador, configure `DEFAULT_ADMIN_NAME`, `DEFAULT_AD
 
 ## Chamadas de teste e Android
 
-A versão 0.2.0 usa Socket.IO no mesmo processo Node e serviço Android nativo de localização. A hospedagem precisa encaminhar `/socket.io` (WebSocket e polling) para esse processo. A inicialização aplica a migração aditiva e idempotente `003_pickup_calls.sql` após `002`, sob o bloqueio SQL existente. Não execute `001` integralmente no banco atual. A conta SQL precisa de permissão CREATE para as novas tabelas. Nenhum vínculo de empresa ou profissional é criado automaticamente: provisione empresas ativas, `company_members` com função autorizada e `company_professionals` ativos pelo procedimento administrativo existente.
+A versão 0.2.0 usa Socket.IO no mesmo processo Node e serviço Android nativo de localização. A hospedagem precisa encaminhar `/socket.io` (WebSocket e polling) para esse processo. A inicialização aplica a migração aditiva e idempotente `003_pickup_calls.sql` após `002`, sob bloqueio SQL próprio; se a nova migração falhar, o login permanece disponível e as chamadas ficam indisponíveis até a correção e o reinício. Não execute `001` integralmente no banco atual. A conta SQL precisa de permissão CREATE para as novas tabelas. Nenhum vínculo de empresa ou profissional é criado automaticamente: provisione empresas ativas, `company_members` com função autorizada e `company_professionals` ativos. O administrador global pode acessar empresas existentes sem vínculo individual.
 
 Configure `SESSION_SECRET` forte e `CORS_ORIGINS` com os domínios dos portais. Use UTC no servidor e na conexão SQL. A implementação atual usa um único processo Node; múltiplas réplicas exigem solução explícita de distribuição dos eventos antes de escalar.
 

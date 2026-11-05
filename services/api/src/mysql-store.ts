@@ -13,18 +13,21 @@ export class MysqlStore implements IdentityStore {
   readonly pool: Pool;
   private configured = true;
   ready: Promise<void>;
+  callsReady: Promise<void>;
 
   constructor() {
     const host = process.env.DB_HOST?.trim();
     if (host && !host.includes('COLOQUE_AQUI')) {
       this.pool = mysql.createPool({ host, port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME, timezone: 'Z', connectionLimit: 5 });
     } else if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('COLOQUE_AQUI')) {
-      this.pool = mysql.createPool(process.env.DATABASE_URL);
+      this.pool = mysql.createPool({ uri: process.env.DATABASE_URL, timezone: 'Z', connectionLimit: 5 });
     } else {
       this.configured = false;
       this.pool = mysql.createPool({ host: '127.0.0.1', port: 1, connectionLimit: 1 });
     }
     this.ready = this.initialize();
+    this.callsReady = this.ready.then(() => this.initializeCalls());
+    void this.callsReady.catch(() => {});
   }
 
   private async initialize() {
@@ -38,12 +41,25 @@ export class MysqlStore implements IdentityStore {
       const migration = await readFile(resolve(__dirname, 'migrations', '002_identity_bootstrap.sql'), 'utf8')
         .catch(() => readFile(resolve(__dirname, '../../../database/migrations/002_identity_bootstrap.sql'), 'utf8'));
       for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
-      const pickupMigration = await readFile(resolve(__dirname, 'migrations', '003_pickup_calls.sql'), 'utf8')
-        .catch(() => readFile(resolve(__dirname, '../../../database/migrations/003_pickup_calls.sql'), 'utf8'));
-      for (const statement of pickupMigration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
       await this.bootstrap(connection);
     } finally {
       if (locked) await connection.query("SELECT RELEASE_LOCK('zap_identity_bootstrap')");
+      connection.release();
+    }
+  }
+
+  private async initializeCalls() {
+    const connection = await this.pool.getConnection();
+    let locked = false;
+    try {
+      const [lock] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('zap_calls_bootstrap', 30) AS acquired");
+      if (lock[0]?.acquired !== 1) throw new Error('Não foi possível obter o bloqueio de inicialização das chamadas.');
+      locked = true;
+      const migration = await readFile(resolve(__dirname, 'migrations', '003_pickup_calls.sql'), 'utf8')
+        .catch(() => readFile(resolve(__dirname, '../../../database/migrations/003_pickup_calls.sql'), 'utf8'));
+      for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
+    } finally {
+      if (locked) await connection.query("SELECT RELEASE_LOCK('zap_calls_bootstrap')");
       connection.release();
     }
   }

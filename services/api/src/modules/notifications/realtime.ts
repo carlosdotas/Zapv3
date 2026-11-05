@@ -9,12 +9,13 @@ export function registerRealtime(app: FastifyInstance, identity: IdentityStore, 
     const id=sessionUser(token,secret); const user=id ? await identity.findById(id) : undefined;
     if(!user || user.status!=='active') throw new Error('UNAUTHENTICATED'); return user;
   };
-  io.use(async(socket,next)=>{try { await identity.ready; socket.data.token=socket.handshake.auth.token; const user=await authenticate(socket.data.token); socket.data.userId=user.id; next(); } catch { next(new Error('Sessão inválida ou serviço indisponível.')); }});
+  io.use(async(socket,next)=>{try { await identity.ready; if(identity.callsReady) await identity.callsReady; socket.data.token=socket.handshake.auth.token; const user=await authenticate(socket.data.token); socket.data.userId=user.id; next(); } catch { next(new Error('Sessão inválida ou serviço indisponível.')); }});
   const publish=async(call:Call) => {
     for(const socket of io.sockets.sockets.values()) {
       try {
         const user=await authenticate(socket.data.token);
-        if(user.id!==call.professionalId) await store.company(user.id,call.companyId);
+        if(user.id===call.professionalId) { if(!user.roles.includes('professional') || !await store.canReceive(user.id,call.companyId)) continue; }
+        else await store.company(user.id,call.companyId);
         socket.emit('pickup:updated',call);
       } catch { /* No delivery outside the current authorized scope. */ }
     }
@@ -29,7 +30,7 @@ export function registerRealtime(app: FastifyInstance, identity: IdentityStore, 
       catch(e) { const code=(e as Error).message; ack({error:code==='FORBIDDEN'?'Você não tem permissão para esta solicitação.':code==='UNAVAILABLE'?'Profissional fora de serviço ou indisponível.':code==='RATE_LIMIT'?'Aguarde 30 segundos antes de outra chamada.':'Não foi possível concluir a solicitação.'}); }
       finally { operations--; }
     });
-    on('pickup:sync',async(id)=>{await store.heartbeat(id); return store.sync(id);});
+    on('pickup:sync',id=>store.sync(id));
     on('company:list',id=>store.companies(id));
     on('professional:list',(id,b)=>store.professionals(id,String(b?.companyId??'')));
     on('pickup:create',async(id,b)=>{ const call=await store.create(id,String(b?.companyId??''),String(b?.professionalId??'')); await publish(call); return call; });
@@ -43,7 +44,8 @@ export function registerRealtime(app: FastifyInstance, identity: IdentityStore, 
     },true);
   };
   io.on('connection',actions);
-  let expiring=false;
-  const timer=setInterval(async()=>{if(expiring)return;expiring=true;try{for(const call of await store.expire()) await publish(call);}catch{app.log.error('Falha ao expirar chamadas de teste.');}finally{expiring=false;}},1000); timer.unref();
+  let expiring=false; let callsAvailable=!identity.callsReady;
+  if(identity.callsReady) void identity.callsReady.then(()=>{callsAvailable=true;}).catch(()=>console.error('Falha ao inicializar as chamadas; confira as tabelas e permissões do MySQL.'));
+  const timer=setInterval(async()=>{if(expiring||!callsAvailable)return;expiring=true;try{for(const call of await store.expire()) await publish(call);}catch{app.log.error('Falha ao expirar chamadas de teste.');}finally{expiring=false;}},1000); timer.unref();
   app.addHook('onClose',async()=>{clearInterval(timer); await new Promise<void>(resolve=>io.close(()=>resolve()));});
 }
