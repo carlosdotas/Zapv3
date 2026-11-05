@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EncomendasZap</string>
+    <string name="location_channel_name">Localização de entrega</string>
+    <string name="location_channel_description">Mantém a localização disponível durante uma entrega ativa.</string>
+    <string name="alert_channel_name">Alertas de chamadas</string>
+    <string name="alert_channel_description">Alertas de novas chamadas e notificações da operação.</string>
+</resources>

@@ -92,6 +92,21 @@ a, button, input { touch-action: manipulation; }
 .success-panel p { margin: 8px 0 16px; color: #64748b; font-size: 13px; line-height: 1.6; }
 .success-panel .success-panel__note { color: #94a3b8; font-size: 12px; }
 .auth-home-link { display: inline-block; margin-top: 18px; color: #0b5187; font-size: 12px; font-weight: 700; text-decoration: none; }
+.mobile-tools { margin: 20px 0 22px; padding: 16px; border: 1px solid #dbeafe; border-radius: 12px; background: #f8fbff; text-align: left; }
+.mobile-tools__heading h2 { margin: 4px 0 2px; color: #0f172a; font-size: 16px; font-weight: 900; }
+.mobile-tools__heading p { margin: 0; color: #64748b; font-size: 11px; line-height: 16px; }
+.mobile-tools__eyebrow { color: #0b5187; font-size: 10px; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; }
+.mobile-tools__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.mobile-tools__action, .mobile-tools__call-button { min-height: 38px; border: 1px solid #bfdbfe; border-radius: 7px; background: #fff; color: #0b5187; font-size: 11px; font-weight: 800; cursor: pointer; }
+.mobile-tools__action:hover, .mobile-tools__call-button:hover { border-color: #0b5187; background: #eff6ff; }
+.mobile-tools__call { margin-top: 14px; }
+.mobile-tools__call label { display: block; margin-bottom: 5px; color: #475569; font-size: 11px; font-weight: 800; }
+.mobile-tools__call-row { display: flex; gap: 8px; }
+.mobile-tools__call input { min-width: 0; flex: 1; min-height: 38px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #0f172a; font-size: 13px; outline: none; }
+.mobile-tools__call input:focus { border-color: #0b5187; }
+.mobile-tools__call-button { padding: 0 14px; background: #0b5187; color: #fff; }
+.mobile-tools__call-button:hover { background: #083d66; color: #fff; }
+.mobile-tools__status { margin: 10px 0 0; color: #0b5187; font-size: 11px; line-height: 15px; font-weight: 700; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes card-enter { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
@@ -103,6 +118,9 @@ a, button, input { touch-action: manipulation; }
 @media (max-width: 359px) {
   .auth-card__header, .auth-card__body { padding-left: 18px; padding-right: 18px; }
   .auth-back { top: 8px; left: 6px; }
+}
+@media (max-width: 400px) {
+  .mobile-tools__grid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

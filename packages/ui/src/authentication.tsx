@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { AuthShell, Field, PasswordField } from './auth-shell.js';
 import { Icon } from './icons.js';
+import { MobileTools } from './mobile-tools.js';
 
 type Credentials = { phone: string; password: string };
 type Registration = Credentials & { name: string };
@@ -91,6 +92,7 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
       <h2>{registration ? 'Cadastro concluído!' : 'Bem-vindo(a)!'}</h2>
       <p>{userName}, seu acesso foi confirmado.</p>
       <p className="success-panel__note">As próximas telas da operação estarão disponíveis em breve.</p>
+      <MobileTools />
       <button className="primary-button" type="button" onClick={signOut}>Voltar ao login <Icon name="arrow-right" size={16} /></button>
       <a className="auth-home-link" href={homeHref}>Ir para a página inicial</a>
     </section> : <form onSubmit={submit} className="auth-form" aria-busy={busy}>
