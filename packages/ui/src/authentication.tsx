@@ -74,6 +74,8 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
       const code = error instanceof Error ? error.message : '';
       setMessage(code === 'PHONE_EXISTS' ? 'Este telefone já está cadastrado. Entre com sua senha.'
         : code === 'REGISTERED_LOGIN_FAILED' ? 'Cadastro criado. Entre com seu telefone e senha para continuar.'
+          : code === 'LOGIN_CONNECTION_ERROR' ? 'Não foi possível conectar ao servidor. Confira sua internet e tente novamente.'
+            : code === 'LOGIN_SERVER_ERROR' ? 'O servidor está temporariamente indisponível. Tente novamente em instantes.'
           : registration ? 'Não foi possível concluir o cadastro. Confira seus dados e tente novamente.'
             : 'Não foi possível entrar. Confira seu telefone e senha e tente novamente.');
       if (code === 'REGISTERED_LOGIN_FAILED') { setMode('login'); window.history.replaceState(null, '', window.location.pathname + window.location.search); }
