@@ -13,6 +13,6 @@ const { signIn, signUp } = createAuthActions(apiUrl);
 function Application() {
   const [session,setSession]=useState<LoginResult>();
   const authenticate=async(input:{phone:string;password:string})=>{const result=await signIn(input);setSession(result);return result;};
-  return <Authentication portal="professional" onLogin={authenticate} onRegister={async input=>{const result=await signUp(input);setSession(result);return result;}} homeHref={homeUrl()} renderAuthenticated={signOut=>session && <Dashboard apiUrl={apiUrl} token={session.token} userId={session.user.id} onLogout={()=>{setSession(undefined);signOut();}} />} />;
+  return <Authentication portal="professional" onLogin={authenticate} onRegister={async input=>{const result=await signUp(input);setSession(result);return result;}} homeHref={homeUrl()} renderAuthenticated={signOut=>session && <Dashboard apiUrl={apiUrl} token={session.token} userId={session.user.id} userName={session.user.name} onLogout={()=>{setSession(undefined);signOut();}} />} />;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><Application /></StrictMode>);

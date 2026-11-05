@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -54,25 +56,35 @@ public final class PickupAlertActivity extends Activity {
         if (!readCall(getIntent())) { finish(); return; }
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
+        layout.setGravity(Gravity.CENTER_HORIZONTAL);
         int padding = (int) (24 * getResources().getDisplayMetrics().density);
         layout.setPadding(padding, padding, padding, padding);
-        layout.setBackgroundColor(Color.rgb(0, 43, 73));
+        layout.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{Color.rgb(9,13,22),Color.rgb(15,23,42),Color.rgb(7,10,18)}));
+        TextView eyebrow = new TextView(this);
+        eyebrow.setText("ENCOMENDASZAP  •  MOTORISTA"); eyebrow.setTextColor(Color.rgb(253,186,116)); eyebrow.setTextSize(11); eyebrow.setTypeface(null,Typeface.BOLD); eyebrow.setGravity(Gravity.CENTER);
         TextView title = new TextView(this);
-        title.setText("Chamada de coleta — teste"); title.setTextColor(Color.WHITE); title.setTextSize(24); title.setGravity(Gravity.CENTER);
-        countdown = new TextView(this); countdown.setTextColor(Color.WHITE); countdown.setTextSize(17); countdown.setGravity(Gravity.CENTER);
-        details = new TextView(this); details.setTextColor(Color.WHITE); details.setTextSize(16); details.setGravity(Gravity.START); details.setPadding(0, padding, 0, padding); showDetails(getIntent());
-        ScrollView detailsScroll = new ScrollView(this); detailsScroll.addView(details);
+        title.setText("Nova coleta para você"); title.setTextColor(Color.WHITE); title.setTextSize(26); title.setTypeface(null,Typeface.BOLD); title.setGravity(Gravity.CENTER); title.setPadding(0,padding/2,0,padding/3);
+        countdown = new TextView(this); countdown.setTextColor(Color.rgb(203,213,225)); countdown.setTextSize(14); countdown.setGravity(Gravity.CENTER); countdown.setPadding(0,0,0,padding/2);
+        details = new TextView(this); details.setTextColor(Color.rgb(30,41,59)); details.setTextSize(16); details.setGravity(Gravity.START); details.setPadding(padding,padding,padding,padding); showDetails(getIntent());
+        ScrollView detailsScroll = new ScrollView(this); detailsScroll.setBackground(rounded(Color.WHITE,20)); detailsScroll.addView(details);
         message = new TextView(this); message.setTextColor(Color.WHITE); message.setGravity(Gravity.CENTER);
-        accept = new Button(this); accept.setText("Aceitar"); accept.setTextColor(Color.WHITE); accept.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(8, 122, 77)));
-        reject = new Button(this); reject.setText("Recusar"); reject.setTextColor(Color.WHITE); reject.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(180, 35, 24)));
+        accept = new Button(this); accept.setText("Aceitar chamada"); accept.setAllCaps(false); accept.setTypeface(null,Typeface.BOLD); accept.setTextColor(Color.WHITE); accept.setBackground(rounded(Color.rgb(5,150,105),14));
+        reject = new Button(this); reject.setText("Recusar"); reject.setAllCaps(false); reject.setTypeface(null,Typeface.BOLD); reject.setTextColor(Color.rgb(190,18,60)); reject.setBackground(rounded(Color.rgb(255,241,242),14));
         accept.setOnClickListener(view -> respond("accepted")); reject.setOnClickListener(view -> respond("rejected"));
-        layout.addView(title); layout.addView(countdown); layout.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1)); layout.addView(message); layout.addView(accept); layout.addView(reject);
+        LinearLayout actions = new LinearLayout(this); actions.setOrientation(LinearLayout.HORIZONTAL); actions.setPadding(0,padding/2,0,0);
+        LinearLayout.LayoutParams rejectSize = new LinearLayout.LayoutParams(0,(int)(52*getResources().getDisplayMetrics().density),1); rejectSize.setMargins(0,0,padding/3,0);
+        actions.addView(reject,rejectSize); actions.addView(accept,new LinearLayout.LayoutParams(0,(int)(52*getResources().getDisplayMetrics().density),1.4f));
+        layout.addView(eyebrow); layout.addView(title); layout.addView(countdown); layout.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1)); layout.addView(message); layout.addView(actions);
         setContentView(layout);
         IntentFilter filter = new IntentFilter(STATUS_ACTION);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(statusReceiver, filter);
         handler.post(tick);
+    }
+
+    private GradientDrawable rounded(int color, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable(); drawable.setColor(color);
+        drawable.setCornerRadius(radiusDp * getResources().getDisplayMetrics().density); return drawable;
     }
 
     @Override protected void onNewIntent(Intent intent) {
