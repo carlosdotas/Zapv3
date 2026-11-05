@@ -16,10 +16,22 @@ public final class NativeBridge {
     public String getAppProfile() { return "motorista".equals(BuildConfig.FLAVOR) ? "motorista" : "transportadora"; }
 
     @JavascriptInterface
-    public void requestLocation() { activity.requestLocationFromWeb(); }
+    public void requestLocation() { activity.runOnUiThread(activity::requestLocationFromWeb); }
 
     @JavascriptInterface
-    public void stopLocation() { activity.stopLocationFromWeb(); }
+    public void stopLocation() { activity.runOnUiThread(activity::stopLocationFromWeb); }
+
+    @JavascriptInterface
+    public void startDuty(String token) { activity.runOnUiThread(() -> activity.startDutyFromWeb(token)); }
+
+    @JavascriptInterface
+    public void stopDuty() { activity.runOnUiThread(activity::stopDutyFromWeb); }
+
+    @JavascriptInterface
+    public boolean isDutyRunning() { return LocationService.running; }
+
+    @JavascriptInterface
+    public boolean isDutyConnected() { return LocationService.dutyConnected; }
 
     @JavascriptInterface
     public boolean isLocationRunning() { return LocationService.running; }
@@ -37,14 +49,14 @@ public final class NativeBridge {
     public long getLocationUpdatedAt() { return LocationService.updatedAt; }
 
     @JavascriptInterface
-    public void showNotification(String title, String message) { activity.showLocalNotification(title, message); }
+    public void showNotification(String title, String message) { activity.runOnUiThread(() -> activity.showLocalNotification(title, message)); }
 
     @JavascriptInterface
-    public void openCall(String phone) { activity.openDialer(phone); }
+    public void openCall(String phone) { activity.runOnUiThread(() -> activity.openDialer(phone)); }
 
     @JavascriptInterface
-    public void pickContact() { activity.openContactPicker(); }
+    public void pickContact() { activity.runOnUiThread(activity::openContactPicker); }
 
     @JavascriptInterface
-    public void openWhatsApp(String phone, String message) { activity.openWhatsApp(phone, message); }
+    public void openWhatsApp(String phone, String message) { activity.runOnUiThread(() -> activity.openWhatsApp(phone, message)); }
 }

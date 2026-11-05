@@ -1,1 +1,10 @@
 @import url('../../auth.css');
+.operation-page { min-height: 100dvh; padding: 24px 16px; background: #edf3f7; }
+.operation-card { max-width: 540px; margin: 0 auto; padding: 24px; border-radius: 12px; background: white; color: #1e293b; }
+.operation-card header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.operation-card header p { width: 100%; margin: 0; color: #0b5187; font-weight: 800; }
+.operation-card h1 { margin: 0; font-size: 24px; }
+.operation-card h2 { margin: 24px 0 8px; font-size: 18px; }
+.operation-card p { line-height: 1.5; }
+.operation-card label { display: block; margin: 16px 0; font-weight: 700; }
+.operation-card select { display: block; width: 100%; margin-top: 6px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }

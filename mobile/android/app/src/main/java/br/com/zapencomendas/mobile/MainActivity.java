@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
 
     private WebView webView;
     private boolean startLocationAfterPermission = false;
+    private String pendingDutyToken;
     private long lastBackPressedAt = 0L;
 
     @Override
@@ -112,7 +113,11 @@ public class MainActivity extends Activity {
             try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) {}
             return true;
         }
-        return false;
+        if ("https".equalsIgnoreCase(scheme) && !Uri.parse(BuildConfig.WEB_URL).getHost().equalsIgnoreCase(uri.getHost())) {
+            try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { showToast("Não foi possível abrir o link."); }
+            return true;
+        }
+        return !"https".equalsIgnoreCase(scheme);
     }
 
     private void injectMobileHelpers(WebView view) {
@@ -134,6 +139,31 @@ public class MainActivity extends Activity {
     public void stopLocationFromWeb() {
         stopService(new Intent(this, LocationService.class));
         showToast("Localização pausada.");
+    }
+
+    public void startDutyFromWeb(String token) {
+        if (!"motorista".equals(BuildConfig.FLAVOR) || token == null || token.isBlank()) return;
+        pendingDutyToken = token;
+        boolean granted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (!granted) {
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_CODE);
+            return;
+        }
+        startDutyService();
+    }
+
+    private void startDutyService() {
+        if (pendingDutyToken == null) return;
+        Intent intent = new Intent(this, LocationService.class).setAction(LocationService.ACTION_START);
+        intent.putExtra(LocationService.EXTRA_TOKEN, pendingDutyToken);
+        pendingDutyToken = null;
+        startForegroundService(intent);
+    }
+
+    public void stopDutyFromWeb() {
+        pendingDutyToken = null;
+        if (LocationService.running) startService(new Intent(this, LocationService.class).setAction(LocationService.ACTION_STOP));
     }
 
     private void startLocationService() {
@@ -239,6 +269,11 @@ public class MainActivity extends Activity {
             startLocationAfterPermission = false;
             startLocationService();
             showToast("Localização ativada para a entrega.");
+        }
+        if (requestCode == LOCATION_PERMISSION_CODE && pendingDutyToken != null) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) startDutyService();
+            else { pendingDutyToken = null; showToast("Permita a localização para entrar em serviço."); }
         }
         if (requestCode == CONTACT_PERMISSION_CODE
             && checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {

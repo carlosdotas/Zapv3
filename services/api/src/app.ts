@@ -3,6 +3,9 @@ import cors from '@fastify/cors';
 import { MemoryStore, type IdentityStore } from './store.js';
 import { verifyPassword, sessionToken, sessionUser } from './security.js';
 import { registerFrontendRoutes } from './web.js';
+import { MysqlStore } from './mysql-store.js';
+import { TestCallsRepository } from './modules/orders/test-calls-repository.js';
+import { registerTestCallSocket } from './modules/orders/test-calls-socket.js';
 
 type AuthRequest = FastifyRequest & { userId?: string };
 const secret = process.env.SESSION_SECRET ?? 'development-only-change-me-32-characters';
@@ -13,6 +16,7 @@ export function buildApp(store: IdentityStore = new MemoryStore()): FastifyInsta
   let identityAvailable = true;
   app.addHook('onReady', async () => { try { await store.ready; } catch { identityAvailable = false; console.error('Falha ao inicializar o banco de identidade; confira as variáveis e permissões do MySQL.'); } });
   app.addHook('onClose', async () => { await store.close?.(); });
+  if (store instanceof MysqlStore) registerTestCallSocket(app, store, new TestCallsRepository(store.getPool()), secret, origins);
   app.addHook('preHandler', async (request, reply) => { if (request.url.startsWith('/api/v1/') && !identityAvailable) return reply.code(503).send({ error: { code: 'IDENTITY_UNAVAILABLE', message: 'O acesso está temporariamente indisponível. Tente novamente mais tarde.' } }); });
   app.get('/health', async () => ({ status: 'ok', service: 'zap-api' }));
   app.post('/api/v1/auth/register-professional', async (request, reply) => {

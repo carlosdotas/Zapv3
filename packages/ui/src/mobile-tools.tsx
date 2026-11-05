@@ -8,6 +8,10 @@ type NativeBridge = {
   showNotification?: (title: string, message: string) => void;
   openCall?: (phone: string) => void;
   pickContact?: () => void;
+  startDuty?: (token: string) => void;
+  stopDuty?: () => void;
+  isDutyRunning?: () => boolean;
+  isDutyConnected?: () => boolean;
 };
 
 declare global {

@@ -1,11 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { AuthShell, Field, PasswordField } from './auth-shell.js';
 import { Icon } from './icons.js';
 import { MobileTools } from './mobile-tools.js';
 
 type Credentials = { phone: string; password: string };
 type Registration = Credentials & { name: string };
-type Authenticated = { user: { name: string } };
+type Authenticated = { token?: string; user: { name: string } };
 type Portal = 'company' | 'professional' | 'admin';
 type Props = {
   portal: Portal;
@@ -13,6 +13,7 @@ type Props = {
   onRegister?: (input: Registration) => Promise<Authenticated>;
   registerHref?: string;
   homeHref?: string;
+  renderAuthenticated?: (session: Authenticated, signOut: () => void) => ReactNode;
 };
 
 const portalLabels: Record<Portal, string> = { company: 'Portal da transportadora', professional: 'Portal do motorista', admin: 'Administração' };
@@ -30,7 +31,7 @@ function formatPhone(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, split)}-${digits.slice(split)}`;
 }
 
-export function Authentication({ portal, onLogin, onRegister, registerHref = '/profissional/#cadastro', homeHref = '/' }: Props) {
+export function Authentication({ portal, onLogin, onRegister, registerHref = '/profissional/#cadastro', homeHref = '/', renderAuthenticated }: Props) {
   const [mode, setMode] = useState<'login' | 'register'>(() => onRegister && window.location.hash === '#cadastro' ? 'register' : 'login');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -38,6 +39,7 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [userName, setUserName] = useState('');
+  const [session, setSession] = useState<Authenticated | null>(null);
   const registration = mode === 'register';
 
   useEffect(() => {
@@ -68,6 +70,7 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
       const input = { phone: `+55${digits}`, password };
       const result = registration && onRegister ? await onRegister({ ...input, name: name.trim() }) : await onLogin(input);
       setUserName(result.user.name);
+      setSession(result);
       setPassword('');
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
@@ -79,7 +82,9 @@ export function Authentication({ portal, onLogin, onRegister, registerHref = '/p
     } finally { setBusy(false); }
   }
 
-  function signOut() { setUserName(''); setPassword(''); switchMode('login'); }
+  function signOut() { setUserName(''); setSession(null); setPassword(''); switchMode('login'); }
+
+  if (session && renderAuthenticated) return <>{renderAuthenticated(session, signOut)}</>;
 
   const description = userName ? 'Acesso confirmado à sua conta'
     : registration ? 'Cadastro de motorista parceiro'

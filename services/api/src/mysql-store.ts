@@ -13,6 +13,7 @@ export class MysqlStore implements IdentityStore {
   private pool: Pool;
   private configured = true;
   ready: Promise<void>;
+  callsReady: Promise<void>;
 
   constructor() {
     const host = process.env.DB_HOST?.trim();
@@ -25,6 +26,8 @@ export class MysqlStore implements IdentityStore {
       this.pool = mysql.createPool({ host: '127.0.0.1', port: 1, connectionLimit: 1 });
     }
     this.ready = this.initialize();
+    this.callsReady = this.ready.then(() => this.initializeCalls());
+    void this.callsReady.catch(() => {});
   }
 
   private async initialize() {
@@ -35,14 +38,32 @@ export class MysqlStore implements IdentityStore {
       const [lock] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('zap_identity_bootstrap', 30) AS acquired");
       if (lock[0]?.acquired !== 1) throw new Error('Não foi possível obter o bloqueio de inicialização da identidade.');
       locked = true;
-      const migration = await readFile(resolve(__dirname, 'migrations', '002_identity_bootstrap.sql'), 'utf8')
-        .catch(() => readFile(resolve(__dirname, '../../../database/migrations/002_identity_bootstrap.sql'), 'utf8'));
-      for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
+      await this.applyMigration(connection, '002_identity_bootstrap.sql');
       await this.bootstrap(connection);
     } finally {
       if (locked) await connection.query("SELECT RELEASE_LOCK('zap_identity_bootstrap')");
       connection.release();
     }
+  }
+
+  private async initializeCalls() {
+    const connection = await this.pool.getConnection();
+    let locked = false;
+    try {
+      const [lock] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('zap_calls_bootstrap', 30) AS acquired");
+      if (lock[0]?.acquired !== 1) throw new Error('Não foi possível obter o bloqueio de inicialização das chamadas.');
+      locked = true;
+      await this.applyMigration(connection, '003_pickup_test_calls.sql');
+    } finally {
+      if (locked) await connection.query("SELECT RELEASE_LOCK('zap_calls_bootstrap')");
+      connection.release();
+    }
+  }
+
+  private async applyMigration(connection: PoolConnection, file: string) {
+    const migration = await readFile(resolve(__dirname, 'migrations', file), 'utf8')
+      .catch(() => readFile(resolve(__dirname, '../../../database/migrations', file), 'utf8'));
+    for (const statement of migration.replace(/^--.*$/gm, '').split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
   }
 
   private async bootstrap(connection: PoolConnection) {
@@ -89,6 +110,7 @@ export class MysqlStore implements IdentityStore {
   }
 
   async findByPhone(phone: string) { return this.find('phone_e164', phone); }
+  getPool() { return this.pool; }
   async findById(id: string) { return this.find('id', id); }
   private async find(field: 'id' | 'phone_e164', value: string): Promise<User | undefined> {
     await this.ready;
