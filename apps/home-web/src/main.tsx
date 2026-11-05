@@ -2,8 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
 
-const loginUrl = import.meta.env.VITE_LOGIN_URL ?? '#acesso';
-const professionalUrl = import.meta.env.VITE_PROFESSIONAL_URL ?? '#acesso-profissional';
+const loginUrl = import.meta.env.VITE_LOGIN_URL ?? '/empresa/';
+const professionalUrl = import.meta.env.VITE_PROFESSIONAL_URL ?? '/profissional/';
 
 function App() {
   return <main className="home-page">

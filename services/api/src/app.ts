@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { MemoryStore } from './store.js';
 import { verifyPassword, sessionToken, sessionUser } from './security.js';
 import type { Role } from './domain.js';
+import { registerFrontendRoutes } from './web.js';
 
 type AuthRequest = FastifyRequest & { userId?: string };
 const secret = process.env.SESSION_SECRET ?? 'development-only-change-me-32-characters';
@@ -25,5 +26,6 @@ export function buildApp(store = new MemoryStore()): FastifyInstance {
   app.addHook('preHandler', async (request: AuthRequest, reply) => { if (!request.url.startsWith('/api/v1') || request.url.startsWith('/api/v1/auth/')) return; const id = sessionUser(request.headers.authorization?.replace(/^Bearer\s+/i, ''), secret); if (!id || !store.findById(id)) return reply.code(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Sua sessão expirou. Entre novamente.' } }); request.userId = id; });
   app.get('/api/v1/me', async (request: AuthRequest, reply) => { const user = store.findById(request.userId!); if (!user) return reply.code(401).send({ error: { code: 'UNAUTHENTICATED', message: 'Sessão inválida.' } }); return { user: { id: user.id, name: user.name, phone: user.phone, roles: user.roles } }; });
   app.get('/api/v1/admin/ping', { preHandler: async (request: AuthRequest, reply) => { const user = store.findById(request.userId!); if (!user?.roles.includes('platform_admin')) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'Você não tem permissão para esta área.' } }); } }, async () => ({ ok: true }));
+  registerFrontendRoutes(app);
   return app;
 }
