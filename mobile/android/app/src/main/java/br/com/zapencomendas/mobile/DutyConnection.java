@@ -4,7 +4,6 @@ import android.app.*;
 import android.content.Intent;
 import android.location.Location;
 import android.media.AudioAttributes;
-import android.media.RingtoneManager;
 import android.os.Handler;
 import android.os.Looper;
 import org.json.*;
@@ -21,10 +20,11 @@ final class DutyConnection {
     private final String professionalId;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, Long> pending = new HashMap<>();
+    private final Map<String, JSONObject> pendingDetails = new HashMap<>();
     private volatile Location latest;
     private volatile boolean stopping;
     private long lastSent;
-    private static final String CHANNEL = "zap_pickup_calls_v1";
+    private static final String CHANNEL = "zap_pickup_calls_v2";
     private final Runnable heartbeat = new Runnable() {
         public void run() {
             if (stopping) return;
@@ -38,11 +38,15 @@ final class DutyConnection {
         IO.Options options = IO.Options.builder().setAuth(Collections.singletonMap("token", token))
             .setReconnection(true).setReconnectionDelay(1000).setReconnectionDelayMax(15000).build();
         socket = IO.socket(URI.create(BuildConfig.API_URL), options);
-        NotificationChannel channel = new NotificationChannel(CHANNEL, "Chamadas de coleta", NotificationManager.IMPORTANCE_HIGH);
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{0,400,200,400});
-        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
-        service.getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        NotificationManager manager = service.getSystemService(NotificationManager.class);
+        NotificationChannel previous = manager.getNotificationChannel("zap_pickup_calls_v1");
+        NotificationChannel channel = new NotificationChannel(CHANNEL, "Chamadas de coleta", previous == null ? NotificationManager.IMPORTANCE_HIGH : previous.getImportance());
+        if (previous == null) channel.setVibrationPattern(new long[]{0,400,200,400});
+        else if (previous.getVibrationPattern() != null) channel.setVibrationPattern(previous.getVibrationPattern());
+        channel.enableVibration(previous == null || previous.shouldVibrate());
+        android.net.Uri sound = android.net.Uri.parse("android.resource://" + service.getPackageName() + "/raw/chamada_zap");
+        channel.setSound(previous != null && previous.getSound() == null ? null : sound, new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
+        manager.createNotificationChannel(channel);
         socket.on(Socket.EVENT_CONNECT, args -> {
             if (stopping) return;
             socket.emit("duty:set", json("onDuty",true), (Ack) result -> {
@@ -75,12 +79,13 @@ final class DutyConnection {
         handler.post(() -> {
             String id=call.optString("id");
             NotificationManager manager=service.getSystemService(NotificationManager.class);
-            if (!"pending".equals(call.optString("status"))) {pending.remove(id);manager.cancel(id,8200);publishStatus(id,call.optString("status"));return;}
+            if (!"pending".equals(call.optString("status"))) {pending.remove(id);pendingDetails.remove(id);manager.cancel(id,8200);publishStatus(id,call.optString("status"));return;}
             long expires;
             try {expires=java.time.Instant.parse(call.getString("expiresAt")).toEpochMilli();} catch(Exception e){return;}
             long remaining=expires-System.currentTimeMillis();
             if (remaining<=0 || pending.containsKey(id) || stopping) return;
             pending.put(id,expires);
+            pendingDetails.put(id,call);
             alertPending(id,true);
         });
     }
@@ -89,8 +94,15 @@ final class DutyConnection {
         if (expires==null || stopping) return;
         NotificationManager manager=service.getSystemService(NotificationManager.class);
         long remaining=expires-System.currentTimeMillis();
-        if (remaining<=0) {pending.remove(id);manager.cancel(id,8200);publishStatus(id,"expired");return;}
+        if (remaining<=0) {pending.remove(id);pendingDetails.remove(id);manager.cancel(id,8200);publishStatus(id,"expired");return;}
         Intent alert=new Intent(service,PickupAlertActivity.class).setData(android.net.Uri.parse("zap://pickup/"+id)).putExtra("id",id).putExtra("expires",expires);
+        JSONObject details=pendingDetails.get(id);
+        if (details != null) {
+            alert.putExtra("companyName",details.optString("companyName", ""));
+            alert.putExtra("pickupName",details.optString("pickupName", ""));
+            alert.putExtra("pickupAddress",details.optString("pickupAddress", ""));
+            if (!details.isNull("distanceKm")) alert.putExtra("distanceKm",details.optDouble("distanceKm", Double.NaN));
+        }
         PendingIntent open=PendingIntent.getActivity(service,0,alert,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder notification=new Notification.Builder(service,CHANNEL).setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle("Chamada de coleta — teste").setContentText("Aceite ou recuse antes de a chamada expirar.")
@@ -121,5 +133,6 @@ final class DutyConnection {
         socket.off();socket.disconnect();
         for(String id:pending.keySet())service.getSystemService(NotificationManager.class).cancel(id,8200);
         pending.clear();
+        pendingDetails.clear();
     }
 }

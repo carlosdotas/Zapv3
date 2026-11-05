@@ -27,14 +27,14 @@ export function registerRealtime(app: FastifyInstance, identity: IdentityStore, 
       if(operations>=4) { ack({error:'Aguarde a conclusão da solicitação.'}); return; }
       operations++;
       try { const user=await authenticate(socket.data.token); if(professional && !user.roles.includes('professional')) throw new Error('FORBIDDEN'); ack({data:await work(user.id,body)}); }
-      catch(e) { const code=(e as Error).message; ack({error:code==='FORBIDDEN'?'Você não tem permissão para esta solicitação.':code==='UNAVAILABLE'?'Motorista fora de serviço ou indisponível.':code==='RATE_LIMIT'?'Aguarde 30 segundos antes de outra chamada.':code==='SETUP_INACTIVE'?'A configuração de teste está inativa. Solicite a revisão do acesso.':'Não foi possível concluir a solicitação.'}); }
+      catch(e) { const code=(e as Error).message; ack({error:code==='FORBIDDEN'?'Você não tem permissão para esta solicitação.':code==='UNAVAILABLE'?'Motorista fora de serviço ou indisponível.':code==='RATE_LIMIT'?'Aguarde 30 segundos antes de outra chamada.':code==='INVALID_DETAILS'?'Confira o nome, o endereço e a localização da coleta.':code==='SETUP_INACTIVE'?'A configuração de teste está inativa. Solicite a revisão do acesso.':'Não foi possível concluir a solicitação.'}); }
       finally { operations--; }
     });
     on('pickup:sync',id=>store.sync(id));
     on('company:list',id=>store.companies(id));
     on('pickup:setup-self-test',id=>store.setupSelfTest(id));
     on('professional:list',(id,b)=>store.professionals(id,String(b?.companyId??'')));
-    on('pickup:create',async(id,b)=>{ const call=await store.create(id,String(b?.companyId??''),String(b?.professionalId??'')); await publish(call); return call; });
+    on('pickup:create',async(id,b)=>{ const call=await store.create(id,String(b?.companyId??''),String(b?.professionalId??''),b?.details); await publish(call); return call; });
     on('pickup:respond',async(id,b)=>{if(!['accepted','rejected'].includes(b?.answer)) throw new Error('INVALID'); const call=await store.respond(id,String(b.id),b.answer); await publish(call); return call;},true);
     on('duty:set',async(id,b)=>{if(typeof b?.onDuty!=='boolean') throw new Error('INVALID'); await store.duty(id,b.onDuty); return {onDuty:b.onDuty};},true);
     on('presence:heartbeat',async(id)=>{await store.heartbeat(id);return {ok:true};},true);

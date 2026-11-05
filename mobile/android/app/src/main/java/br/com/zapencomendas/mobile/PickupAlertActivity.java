@@ -14,6 +14,7 @@ import android.view.Gravity;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 /** Shows only the active test-call prompt; it does not unlock the device. */
@@ -23,6 +24,7 @@ public final class PickupAlertActivity extends Activity {
     private String callId;
     private long expires;
     private TextView countdown;
+    private TextView details;
     private TextView message;
     private Button accept;
     private Button reject;
@@ -59,11 +61,13 @@ public final class PickupAlertActivity extends Activity {
         TextView title = new TextView(this);
         title.setText("Chamada de coleta — teste"); title.setTextColor(Color.WHITE); title.setTextSize(24); title.setGravity(Gravity.CENTER);
         countdown = new TextView(this); countdown.setTextColor(Color.WHITE); countdown.setTextSize(17); countdown.setGravity(Gravity.CENTER);
+        details = new TextView(this); details.setTextColor(Color.WHITE); details.setTextSize(16); details.setGravity(Gravity.START); details.setPadding(0, padding, 0, padding); showDetails(getIntent());
+        ScrollView detailsScroll = new ScrollView(this); detailsScroll.addView(details);
         message = new TextView(this); message.setTextColor(Color.WHITE); message.setGravity(Gravity.CENTER);
         accept = new Button(this); accept.setText("Aceitar"); accept.setTextColor(Color.WHITE); accept.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(8, 122, 77)));
         reject = new Button(this); reject.setText("Recusar"); reject.setTextColor(Color.WHITE); reject.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(180, 35, 24)));
         accept.setOnClickListener(view -> respond("accepted")); reject.setOnClickListener(view -> respond("rejected"));
-        layout.addView(title); layout.addView(countdown); layout.addView(message); layout.addView(accept); layout.addView(reject);
+        layout.addView(title); layout.addView(countdown); layout.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1)); layout.addView(message); layout.addView(accept); layout.addView(reject);
         setContentView(layout);
         IntentFilter filter = new IntentFilter(STATUS_ACTION);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -74,7 +78,21 @@ public final class PickupAlertActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (!readCall(intent)) { finish(); return; }
-        responseAttempt++; awaiting = false; accept.setEnabled(true); reject.setEnabled(true); message.setText("");
+        showDetails(intent); responseAttempt++; awaiting = false; accept.setEnabled(true); reject.setEnabled(true); message.setText("");
+    }
+
+    private void showDetails(Intent intent) {
+        String company = value(intent, "companyName", "Não informada");
+        String place = value(intent, "pickupName", "Não informado");
+        String address = value(intent, "pickupAddress", "Não informado");
+        double distance = intent.getDoubleExtra("distanceKm", Double.NaN);
+        String distanceText = Double.isFinite(distance) && distance >= 0 ? String.format(new java.util.Locale("pt", "BR"), "%.2f km em linha reta", distance) : "Indisponível";
+        details.setText("Transportadora: " + company + "\n\nLocal de coleta: " + place + "\n\nEndereço: " + address + "\n\nDistância aproximada: " + distanceText);
+    }
+
+    private String value(Intent intent, String name, String fallback) {
+        String text = intent.getStringExtra(name);
+        return text == null || text.trim().isEmpty() || "null".equals(text) ? fallback : text;
     }
 
     private boolean readCall(Intent intent) {

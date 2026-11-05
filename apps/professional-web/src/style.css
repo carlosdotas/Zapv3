@@ -8,6 +8,8 @@
 .driver-button--off, .driver-button--rejected { background: #b42318; }
 .driver-button--logout { background: #475569; }
 .driver-call { margin: 20px 0; padding: 18px; border: 1px solid #fbbf24; border-radius: 12px; background: #fffbeb; }
+.driver-call__details { margin: 12px 0; text-align: left; overflow-wrap: anywhere; }
+.driver-call__details p { margin: 5px 0; color: #334155; }
 .driver-call__actions { display: flex; justify-content: center; gap: 12px; }
 .driver-call__actions .driver-button { flex: 1; }
 @media (max-width: 400px) { .driver-dashboard { margin: 12px; padding: 20px; } }

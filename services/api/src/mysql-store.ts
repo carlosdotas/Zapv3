@@ -55,7 +55,7 @@ export class MysqlStore implements IdentityStore {
       const [lock] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('zap_calls_bootstrap', 30) AS acquired");
       if (lock[0]?.acquired !== 1) throw new Error('Não foi possível obter o bloqueio de inicialização das chamadas.');
       locked = true;
-      for (const file of ['003_pickup_calls.sql', '004_pickup_self_test.sql']) {
+      for (const file of ['003_pickup_calls.sql', '004_pickup_self_test.sql', '005_pickup_test_details.sql']) {
         const migration = await readFile(resolve(__dirname, 'migrations', file), 'utf8')
           .catch(() => readFile(resolve(__dirname, '../../../database/migrations', file), 'utf8'));
         for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);

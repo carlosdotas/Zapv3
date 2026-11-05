@@ -16,7 +16,7 @@ beforeAll(async()=>{
  if(!enabled)return;
  const url=new URL(process.env.ZAP_TEST_DATABASE_URL!);if(!url.pathname.startsWith('/zap_test'))throw new Error('Use um banco de teste zap_test.');
  admin=mysql.createPool(url.toString());await admin.query('CREATE DATABASE `'+database+'`');url.pathname='/'+database;pool=mysql.createPool(url.toString());store=new PickupStore(pool);
- for(const file of ['002_identity_bootstrap.sql','003_pickup_calls.sql','004_pickup_self_test.sql'])for(const sql of (await readFile(`../../database/migrations/${file}`,'utf8')).split(';').map(s=>s.trim()).filter(Boolean))await pool.query(sql);
+ for(const file of ['002_identity_bootstrap.sql','003_pickup_calls.sql','004_pickup_self_test.sql','005_pickup_test_details.sql'])for(const sql of (await readFile(`../../database/migrations/${file}`,'utf8')).split(';').map(s=>s.trim()).filter(Boolean))await pool.query(sql);
  await pool.query(`INSERT INTO roles (id,code) VALUES ('r-company','company_admin'),('r-professional','professional'),('r-platform','platform_admin')`);
  for(const id of ['company-user','other-company-user','pro','outsider','platform-admin']) {
   const phone=id==='platform-admin'?'+5562999999999':id;
@@ -39,16 +39,22 @@ test.skipIf(!enabled)('SQL: tenant isolation, target validation, atomic response
  await expect(store.company('platform-admin','company')).resolves.toBeUndefined();
  await expect(store.create('other-company-user','company','pro')).rejects.toThrow('FORBIDDEN');
  await expect(store.create('company-user','company','outsider')).rejects.toThrow('UNAVAILABLE');
- const call=await store.create('company-user','company','pro');
+ await expect(store.create('company-user','company','pro',{latitude:999,longitude:0})).rejects.toThrow('INVALID_DETAILS');
+ await store.location('pro',-16.68,-49.25,15,new Date().toISOString());
+ const call=await store.create('company-user','company','pro',{pickupName:'Loja Central',pickupAddress:'Rua Um, 123',latitude:-16.68,longitude:-49.24});
+ expect(call).toMatchObject({companyName:'Empresa',pickupName:'Loja Central',pickupAddress:'Rua Um, 123'});
+ expect(call.distanceKm).toBeGreaterThan(1); expect(call.distanceKm).toBeLessThan(1.2);
  expect(Date.parse(call.expiresAt)-Date.now()).toBeGreaterThan(118000);
  expect(Date.parse(call.expiresAt)-Date.now()).toBeLessThanOrEqual(120000);
  await expect(store.respond('outsider',call.id,'accepted')).rejects.toThrow('FORBIDDEN');
  const results=await Promise.all([store.respond('pro',call.id,'accepted'),store.respond('pro',call.id,'rejected')]);
  expect(new Set(results.map(r=>r.status)).size).toBe(1);
+ expect(results[0]).toMatchObject({companyName:'Empresa',pickupName:'Loja Central',pickupAddress:'Rua Um, 123',distanceKm:call.distanceKm});
  const [history]=await pool.query<any[]>('SELECT * FROM pickup_test_events WHERE call_id=?',[call.id]);expect(history).toHaveLength(2);
  expect(await store.sync('other-company-user')).toHaveLength(0);
  await pool.execute('UPDATE pickup_test_calls SET created_at=UTC_TIMESTAMP(3)-INTERVAL 1 MINUTE WHERE id=?',[call.id]);
- const expired=await store.create('company-user','company','pro');await pool.execute('UPDATE pickup_test_calls SET expires_at=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND WHERE id=?',[expired.id]);
+ await pool.execute('UPDATE professional_locations SET recorded_at=UTC_TIMESTAMP()-INTERVAL 10 MINUTE WHERE professional_user_id=?',['pro']);
+ const expired=await store.create('company-user','company','pro',{latitude:-16.68,longitude:-49.24});expect(expired.distanceKm).toBeNull();await pool.execute('UPDATE pickup_test_calls SET expires_at=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND WHERE id=?',[expired.id]);
  expect((await store.respond('pro',expired.id,'accepted')).status).toBe('expired');
  await pool.query('UPDATE pickup_test_calls SET created_at=UTC_TIMESTAMP(3)-INTERVAL 1 MINUTE');
  const abandoned=await store.create('company-user','company','pro');await pool.execute('UPDATE pickup_test_calls SET expires_at=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND WHERE id=?',[abandoned.id]);
@@ -75,7 +81,7 @@ test.skipIf(!enabled)('Socket.IO: authenticated delivery, reconnect recovery, te
  const professional=await connect('pro');const company=await connect('company-user');const other=await connect('other-company-user');
  await pool.query('UPDATE pickup_test_calls SET created_at=UTC_TIMESTAMP(3)-INTERVAL 1 MINUTE');
  const delivered=new Promise<any>(resolve=>professional.once('pickup:updated',resolve));
- const response=await emit(company,'pickup:create',{companyId:'company',professionalId:'pro'});expect(response.error).toBeUndefined();expect((await delivered).id).toBe(response.data.id);
+ const response=await emit(company,'pickup:create',{companyId:'company',professionalId:'pro',details:{pickupName:'Mercado',pickupAddress:'Rua Dois, 7'}});expect(response.error).toBeUndefined();expect(await delivered).toMatchObject({id:response.data.id,companyName:'Empresa',pickupName:'Mercado',pickupAddress:'Rua Dois, 7',distanceKm:null});
  expect((await emit(other,'professional:list',{companyId:'company'})).error).toBeTruthy();
  professional.disconnect();const reconnect=await connect('pro');expect((await emit(reconnect,'pickup:sync')).data.some((c:any)=>c.id===response.data.id)).toBe(true);
  await pool.query("UPDATE company_professionals SET status='revoked' WHERE company_id='company' AND professional_user_id='pro'");

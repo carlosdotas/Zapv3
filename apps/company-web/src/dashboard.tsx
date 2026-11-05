@@ -29,12 +29,17 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [driverId, setDriverId] = useState('');
   const [phone, setPhone] = useState('');
+  const [pickupName, setPickupName] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [pickupLocation, setPickupLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [calls, setCalls] = useState<Call[]>([]);
   const [message, setMessage] = useState('');
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const companyRef = useRef('');
+  const locationRequest = useRef(0);
   const canSetup = user.roles.includes('platform_admin') && user.roles.includes('professional');
 
   const refreshDrivers = useCallback((client: Socket, selectedCompany: string) => {
@@ -105,14 +110,27 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
   }
 
   function sendCall() {
-    if (!socket?.connected || !companyId || !selected || !selected.online || busy) return;
+    if (!socket?.connected || !companyId || !selected || !selected.online || busy || !pickupName.trim() || !pickupAddress.trim()) return;
     setBusy(true); setMessage('');
-    socket.timeout(10000).emit('pickup:create', { companyId, professionalId: selected.id }, (failure: Error | null, result?: Reply<Call>) => {
+    socket.timeout(10000).emit('pickup:create', { companyId, professionalId: selected.id, details: { pickupName, pickupAddress, ...(pickupLocation ?? {}) } }, (failure: Error | null, result?: Reply<Call>) => {
       setBusy(false);
       if (failure || result?.error || !result?.data) { setMessage(result?.error || 'Não foi possível confirmar o envio. Confira o histórico antes de tentar novamente.'); return; }
       setCalls(current => [result.data!, ...current.filter(call => call.id !== result.data!.id)].slice(0, 100));
       setMessage('Chamada enviada! O motorista tem até 2 minutos para responder.');
     });
+  }
+
+  function locatePickup() {
+    if (!navigator.geolocation) { setMessage('A localização não está disponível neste aparelho.'); return; }
+    const request = ++locationRequest.current;
+    setLocating(true); setMessage(''); setPickupLocation(null);
+    navigator.geolocation.getCurrentPosition(position => {
+      if (request !== locationRequest.current) return;
+      setLocating(false);
+      if (position.coords.accuracy > 150) { setMessage('Localização imprecisa. Tente novamente em um local aberto.'); return; }
+      setPickupLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      setMessage('Localização da coleta registrada para calcular a distância aproximada.');
+    }, () => { if (request === locationRequest.current) { setLocating(false); setMessage('Não foi possível obter a localização. Você ainda pode enviar a chamada sem distância.'); } }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 });
   }
 
   return <div className="company-page">
@@ -134,7 +152,11 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
         {phone && companyId && !matchingDrivers.length && <p className="company-hint">Nenhum motorista vinculado encontrado com esse telefone.</p>}
         {selected && <div className={`company-driver-status${selected.online ? ' company-driver-status--online' : ''}`}><span />{selected.online ? 'Motorista em serviço, pronto para receber.' : 'Motorista fora de serviço. Peça para abrir o aplicativo e entrar em serviço.'}</div>}
         <button className="company-refresh" type="button" onClick={() => socket && refreshDrivers(socket, companyId)} disabled={!connected || !companyId || refreshing}>{refreshing ? 'Atualizando...' : 'Atualizar disponibilidade'}</button>
-        <button className="primary-button company-send" type="button" onClick={sendCall} disabled={!connected || !companyId || !selected || !selected.online || busy}><Icon name="phone" size={18} />{busy ? 'Aguarde...' : 'Enviar chamada de teste'}</button>
+        <label className="company-field">Nome do local da coleta<input value={pickupName} onChange={event => setPickupName(event.target.value)} maxLength={160} placeholder="Ex.: Loja Central" /></label>
+        <label className="company-field">Endereço da coleta<input value={pickupAddress} onChange={event => { locationRequest.current++; setLocating(false); setPickupLocation(null); setPickupAddress(event.target.value); }} maxLength={300} placeholder="Rua, número, bairro e cidade" /></label>
+        <button className="company-refresh" type="button" onClick={locatePickup} disabled={locating || !pickupAddress.trim()}>{locating ? 'Obtendo localização...' : pickupLocation ? 'Localização da coleta registrada' : 'Estou no local: usar minha localização'}</button>
+        <p className="company-hint">Use a localização somente se você estiver no endereço da coleta. Sem ela ou sem GPS recente do motorista, a distância não será exibida.</p>
+        <button className="primary-button company-send" type="button" onClick={sendCall} disabled={!connected || !companyId || !selected || !selected.online || busy || !pickupName.trim() || !pickupAddress.trim()}><Icon name="phone" size={18} />{busy ? 'Aguarde...' : 'Enviar chamada de teste'}</button>
         {message && <p className="company-message" role="status">{message}</p>}
 
         <div className="company-history"><h2>Últimas chamadas</h2>{currentCalls.length ? <ul>{currentCalls.map(call => <li key={call.id}><span>{labels[call.status] || 'Atualização da chamada'}</span><small>{new Date(call.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small></li>)}</ul> : <p>Suas chamadas de teste aparecerão aqui.</p>}</div>

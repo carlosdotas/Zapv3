@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
-export type Call = { id: string; companyId: string; professionalId: string; status: string; expiresAt: string };
+import { distanceKm, validatePickupDetails } from './pickup-details.js';
+export type Call = { id: string; companyId: string; professionalId: string; status: string; expiresAt: string; companyName: string; pickupName: string | null; pickupAddress: string | null; distanceKm: number | null };
 type Row = RowDataPacket & { id: string; company_id: string; professional_user_id: string; status: string; expires_at: Date };
-const mapCall = (r: Row): Call => ({ id: r.id, companyId: r.company_id, professionalId: r.professional_user_id, status: r.status, expiresAt: new Date(r.expires_at).toISOString() });
+const mapCall = (r: Row): Call => ({ id: r.id, companyId: r.company_id, professionalId: r.professional_user_id, status: r.status, expiresAt: new Date(r.expires_at).toISOString(), companyName: r.display_company_name, pickupName: r.pickup_name ?? null, pickupAddress: r.pickup_address ?? null, distanceKm: r.distance_km == null ? null : Number(r.distance_km) });
+const detailColumns = 't.*,COALESCE(d.company_name,c.name) AS display_company_name,d.pickup_name,d.pickup_address,d.distance_km';
 export class PickupStore {
   constructor(private pool: Pool) {}
+  private async getCall(id: string, db: Pool | PoolConnection = this.pool) {
+    const [rows] = await db.execute<Row[]>(`SELECT ${detailColumns} FROM pickup_test_calls t JOIN companies c ON c.id=t.company_id LEFT JOIN pickup_test_details d ON d.call_id=t.id WHERE t.id=?`,[id]);
+    return mapCall(rows[0]);
+  }
   async company(userId: string, companyId: string, db: Pool | PoolConnection = this.pool) {
     const [rows] = await db.execute<RowDataPacket[]>(`SELECT c.id FROM companies c JOIN users u ON u.id=? AND u.status='active' WHERE c.id=? AND c.status='active' AND (EXISTS (SELECT 1 FROM company_members m JOIN roles r ON r.id=m.role_id WHERE m.company_id=c.id AND m.user_id=u.id AND m.status='active' AND r.code IN ('company_admin','attendant')) OR EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='platform_admin'))`, [userId,companyId]);
     if (!rows.length) throw new Error('FORBIDDEN');
@@ -41,7 +47,8 @@ export class PickupStore {
       return { companyId, professionalId: userId, phone: String(users[0].phone_e164) };
     } catch(e) { await db.rollback(); throw e; } finally { db.release(); }
   }
-  async create(userId: string, companyId: string, professionalId: string) {
+  async create(userId: string, companyId: string, professionalId: string, input?: unknown) {
+    const details = validatePickupDetails(input);
     const db = await this.pool.getConnection();
     try {
       await db.beginTransaction(); await this.company(userId,companyId,db);
@@ -53,7 +60,13 @@ export class PickupStore {
       const [inserted] = await db.execute<ResultSetHeader>(`INSERT INTO pickup_test_calls (id,company_id,professional_user_id,created_by,created_at,expires_at) SELECT ?,c.id,cp.professional_user_id,u.id,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)+INTERVAL 120 SECOND FROM companies c JOIN users u ON u.id=? AND u.status='active' JOIN company_professionals cp ON cp.company_id=c.id AND cp.professional_user_id=? AND cp.status='active' WHERE c.id=? AND c.status='active' AND (EXISTS (SELECT 1 FROM company_members m JOIN roles r ON r.id=m.role_id WHERE m.company_id=c.id AND m.user_id=u.id AND m.status='active' AND r.code IN ('company_admin','attendant')) OR EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='platform_admin'))`,[id,userId,professionalId,companyId]);
       if (!inserted.affectedRows) throw new Error('FORBIDDEN');
       await db.execute(`INSERT INTO pickup_test_events (id,call_id,actor_user_id,status) VALUES (?,?,?,'pending')`,[randomUUID(),id,userId]);
-      const [rows]=await db.execute<Row[]>('SELECT * FROM pickup_test_calls WHERE id=?',[id]); await db.commit(); return mapCall(rows[0]);
+      let distance: number | null = null;
+      if (details.latitude !== null && details.longitude !== null) {
+        const [locations] = await db.execute<RowDataPacket[]>(`SELECT latitude,longitude FROM professional_locations WHERE professional_user_id=? AND recorded_at>=UTC_TIMESTAMP()-INTERVAL 2 MINUTE AND recorded_at<=UTC_TIMESTAMP()+INTERVAL 5 SECOND AND accuracy_m IS NOT NULL AND accuracy_m BETWEEN 0 AND 150`,[professionalId]);
+        if (locations.length) distance = distanceKm(details.latitude,details.longitude,Number(locations[0].latitude),Number(locations[0].longitude));
+      }
+      await db.execute(`INSERT INTO pickup_test_details (call_id,company_name,pickup_name,pickup_address,pickup_latitude,pickup_longitude,distance_km) SELECT ?,name,?,?,?,?,? FROM companies WHERE id=?`,[id,details.pickupName,details.pickupAddress,details.latitude,details.longitude,distance,companyId]);
+      const call=await this.getCall(id,db); await db.commit(); return call;
     } catch(e) { await db.rollback(); throw e; } finally { db.release(); }
   }
   async respond(userId: string,id: string, answer: 'accepted' | 'rejected') {
@@ -67,7 +80,7 @@ export class PickupStore {
         await db.execute("UPDATE pickup_test_calls SET status=? WHERE id=? AND status='pending'",[row.status,id]);
         await db.execute('INSERT INTO pickup_test_events (id,call_id,actor_user_id,status) VALUES (?,?,?,?)',[randomUUID(),id,userId,row.status]);
       }
-      await db.commit(); return mapCall(row);
+      const call=await this.getCall(id,db); await db.commit(); return call;
     } catch(e) { await db.rollback(); throw e; } finally { db.release(); }
   }
   async expire() {
@@ -78,11 +91,13 @@ export class PickupStore {
         await db.execute(`UPDATE pickup_test_calls SET status='expired' WHERE id=?`,[row.id]);
         await db.execute(`INSERT INTO pickup_test_events (id,call_id,status) VALUES (?,?,'expired')`,[randomUUID(),row.id]); row.status='expired';
       }
-      await db.commit(); return rows.map(mapCall);
+      if (!rows.length) { await db.commit(); return []; }
+      const [calls] = await db.execute<Row[]>(`SELECT ${detailColumns} FROM pickup_test_calls t JOIN companies c ON c.id=t.company_id LEFT JOIN pickup_test_details d ON d.call_id=t.id WHERE t.id IN (${rows.map(()=>'?').join(',')})`,rows.map(row=>row.id));
+      await db.commit(); return calls.map(mapCall);
     } catch(e) { await db.rollback(); throw e; } finally { db.release(); }
   }
   async sync(userId: string) {
-    const [rows]=await this.pool.execute<Row[]>(`SELECT DISTINCT t.* FROM pickup_test_calls t JOIN companies c ON c.id=t.company_id AND c.status='active' JOIN users u ON u.id=? AND u.status='active' WHERE ((t.professional_user_id=u.id AND EXISTS (SELECT 1 FROM company_professionals cp JOIN user_global_roles ugr ON ugr.user_id=cp.professional_user_id JOIN roles r ON r.id=ugr.role_id WHERE cp.company_id=t.company_id AND cp.professional_user_id=u.id AND cp.status='active' AND r.code='professional')) OR EXISTS (SELECT 1 FROM company_members m JOIN roles r ON r.id=m.role_id WHERE m.company_id=t.company_id AND m.user_id=u.id AND m.status='active' AND r.code IN ('company_admin','attendant')) OR EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='platform_admin')) AND t.created_at>UTC_TIMESTAMP(3)-INTERVAL 1 DAY ORDER BY t.created_at DESC LIMIT 100`,[userId]); return rows.map(mapCall);
+    const [rows]=await this.pool.execute<Row[]>(`SELECT DISTINCT ${detailColumns} FROM pickup_test_calls t JOIN companies c ON c.id=t.company_id AND c.status='active' LEFT JOIN pickup_test_details d ON d.call_id=t.id JOIN users u ON u.id=? AND u.status='active' WHERE ((t.professional_user_id=u.id AND EXISTS (SELECT 1 FROM company_professionals cp JOIN user_global_roles ugr ON ugr.user_id=cp.professional_user_id JOIN roles r ON r.id=ugr.role_id WHERE cp.company_id=t.company_id AND cp.professional_user_id=u.id AND cp.status='active' AND r.code='professional')) OR EXISTS (SELECT 1 FROM company_members m JOIN roles r ON r.id=m.role_id WHERE m.company_id=t.company_id AND m.user_id=u.id AND m.status='active' AND r.code IN ('company_admin','attendant')) OR EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='platform_admin')) AND t.created_at>UTC_TIMESTAMP(3)-INTERVAL 1 DAY ORDER BY t.created_at DESC LIMIT 100`,[userId]); return rows.map(mapCall);
   }
   async duty(userId:string,on:boolean) {
     await this.pool.execute(`INSERT INTO professional_duty (user_id,on_duty,last_seen_at) VALUES (?,?,UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE on_duty=VALUES(on_duty),last_seen_at=VALUES(last_seen_at)`,[userId,on]);
