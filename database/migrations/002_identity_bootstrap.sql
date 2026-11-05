@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS users (id CHAR(36) PRIMARY KEY, name VARCHAR(160) NOT NULL, phone_e164 VARCHAR(20) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, status ENUM('active','blocked','deleted') NOT NULL DEFAULT 'active', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS roles (id CHAR(36) PRIMARY KEY, code VARCHAR(40) NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS user_global_roles (user_id CHAR(36) NOT NULL, role_id CHAR(36) NOT NULL, PRIMARY KEY(user_id,role_id), FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(role_id) REFERENCES roles(id));
+CREATE TABLE IF NOT EXISTS professional_profiles (user_id CHAR(36) PRIMARY KEY, vehicle_type VARCHAR(40), availability ENUM('offline','available','busy') NOT NULL DEFAULT 'offline', location_consent_at TIMESTAMP NULL, FOREIGN KEY(user_id) REFERENCES users(id));

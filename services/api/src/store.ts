@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Role, User } from './domain.js';
 import { hashPassword } from './security.js';
+export interface IdentityStore {
+  ready: Promise<void>;
+  createProfessional(name: string, phone: string, password: string): Promise<User>;
+  findByPhone(phone: string): User | undefined | Promise<User | undefined>;
+  findById(id: string): User | undefined | Promise<User | undefined>;
+  close?(): Promise<void>;
+}
 export class MemoryStore {
   users = new Map<string, User>();
   ready: Promise<void>;

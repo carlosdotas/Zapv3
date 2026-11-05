@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 describe('API de identidade', () => {
+  it('permite o acesso dos três portais à API', async () => {
+    const app = buildApp();
+    for (const origin of ['https://admin.dotas.site', 'https://empresa.dotas.site', 'https://profissional.dotas.site']) {
+      const response = await app.inject({ method: 'OPTIONS', url: '/api/v1/auth/login', headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } });
+      expect(response.headers['access-control-allow-origin']).toBe(origin);
+    }
+    await app.close();
+  });
   it('carrega o administrador de bootstrap com os perfis administrativos e profissional', async () => {
     const previousPhone = process.env.DEFAULT_ADMIN_PHONE;
     const previousPassword = process.env.DEFAULT_ADMIN_PASSWORD;
