@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.provider.Settings;
 import android.view.Window;
 import android.webkit.GeolocationPermissions;
 import android.webkit.WebChromeClient;
@@ -133,6 +134,21 @@ public class MainActivity extends Activity {
         }
         dutyToken = token;
         requestLocationFromWeb();
+    }
+
+    public boolean canShowUrgentCalls() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true;
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        return manager != null && manager.canUseFullScreenIntent();
+    }
+
+    public void openUrgentCallSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return;
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + getPackageName())));
+        } catch (Exception ignored) {
+            showToast("Abra as configurações do aplicativo e permita notificações em tela cheia.");
+        }
     }
 
     public void requestLocationFromWeb() {

@@ -19,6 +19,12 @@ public final class NativeBridge {
     public void startDuty(String token) { activity.runOnUiThread(() -> activity.startDuty(token)); }
 
     @JavascriptInterface
+    public boolean canShowUrgentCalls() { return activity.canShowUrgentCalls(); }
+
+    @JavascriptInterface
+    public void openUrgentCallSettings() { activity.runOnUiThread(activity::openUrgentCallSettings); }
+
+    @JavascriptInterface
     public void requestLocation() { activity.runOnUiThread(() -> activity.requestLocationFromWeb()); }
 
     @JavascriptInterface

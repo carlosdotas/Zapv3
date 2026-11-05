@@ -18,6 +18,7 @@ import io.socket.client.Ack;
 final class DutyConnection {
     private final LocationService service;
     private final Socket socket;
+    private final String professionalId;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, Long> pending = new HashMap<>();
     private volatile Location latest;
@@ -33,6 +34,7 @@ final class DutyConnection {
     };
     DutyConnection(LocationService service, String token) {
         this.service = service;
+        this.professionalId = token.split("\\.", 2)[0];
         IO.Options options = IO.Options.builder().setAuth(Collections.singletonMap("token", token))
             .setReconnection(true).setReconnectionDelay(1000).setReconnectionDelayMax(15000).build();
         socket = IO.socket(URI.create(BuildConfig.API_URL), options);
@@ -69,43 +71,46 @@ final class DutyConnection {
         socket.emit("location:update",body,(Ack) args -> {});
     }
     private void receive(JSONObject call) {
-        if (call == null) return;
+        if (call == null || !professionalId.equals(call.optString("professionalId"))) return;
         handler.post(() -> {
             String id=call.optString("id");
             NotificationManager manager=service.getSystemService(NotificationManager.class);
-            if (!"pending".equals(call.optString("status"))) {pending.remove(id);manager.cancel(id,8200);return;}
+            if (!"pending".equals(call.optString("status"))) {pending.remove(id);manager.cancel(id,8200);publishStatus(id,call.optString("status"));return;}
             long expires;
             try {expires=java.time.Instant.parse(call.getString("expiresAt")).toEpochMilli();} catch(Exception e){return;}
             long remaining=expires-System.currentTimeMillis();
             if (remaining<=0 || pending.containsKey(id) || stopping) return;
             pending.put(id,expires);
-            alertPending(id);
+            alertPending(id,true);
         });
     }
-    private void alertPending(String id) {
+    private void alertPending(String id,boolean first) {
         Long expires=pending.get(id);
         if (expires==null || stopping) return;
         NotificationManager manager=service.getSystemService(NotificationManager.class);
         long remaining=expires-System.currentTimeMillis();
-        if (remaining<=0) {pending.remove(id);manager.cancel(id,8200);return;}
-        PendingIntent open=PendingIntent.getActivity(service,id.hashCode(),new Intent(service,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+        if (remaining<=0) {pending.remove(id);manager.cancel(id,8200);publishStatus(id,"expired");return;}
+        Intent alert=new Intent(service,PickupAlertActivity.class).setData(android.net.Uri.parse("zap://pickup/"+id)).putExtra("id",id).putExtra("expires",expires);
+        PendingIntent open=PendingIntent.getActivity(service,0,alert,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder notification=new Notification.Builder(service,CHANNEL).setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle("Chamada de coleta — teste").setContentText("Aceite ou recuse antes de a chamada expirar.")
             .setContentIntent(open).setCategory(Notification.CATEGORY_CALL).setTimeoutAfter(remaining).setAutoCancel(false)
             .addAction(new Notification.Action.Builder(null,"Aceitar",action(id,"accepted")).build())
             .addAction(new Notification.Action.Builder(null,"Recusar",action(id,"rejected")).build());
+        if (first) notification.setFullScreenIntent(open,true);
         try {manager.notify(id,8200,notification.build());} catch(SecurityException ignored){}
-        handler.postDelayed(()->alertPending(id),Math.min(8000,remaining));
+        handler.postDelayed(()->alertPending(id,false),Math.min(8000,remaining));
     }
     private PendingIntent action(String id,String answer) {
         Intent intent=new Intent(service,LocationService.class).setAction("respond").setData(android.net.Uri.parse("zap://pickup/"+id+"/"+answer)).putExtra("id",id).putExtra("answer",answer);
         return PendingIntent.getService(service,0,intent,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
     }
     void respond(String id,String answer) {
-        if (!socket.connected() || stopping) return;
+        if (!socket.connected() || stopping) {publishStatus(id,"unavailable");return;}
         JSONObject body=json("id",id);try {body.put("answer",answer);}catch(JSONException ignored){}
-        socket.emit("pickup:respond",body,(Ack) args -> {JSONObject call=object(args).optJSONObject("data");if(call!=null)receive(call);});
+        socket.emit("pickup:respond",body,(Ack) args -> {JSONObject call=object(args).optJSONObject("data");if(call!=null)receive(call);else publishStatus(id,"unavailable");});
     }
+    private void publishStatus(String id,String status) {service.sendBroadcast(new Intent(PickupAlertActivity.STATUS_ACTION).setPackage(service.getPackageName()).putExtra("id",id).putExtra("status",status));}
     void stopDuty() {
         stopping=true;
         if (socket.connected()) socket.emit("duty:set",json("onDuty",false),(Ack) args->handler.post(service::stopSelf));
