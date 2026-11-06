@@ -25,6 +25,7 @@ public class LocationService extends Service implements LocationListener {
     public static volatile float accuracy = 0.0f;
     public static volatile long updatedAt = 0L;
     public static volatile boolean running = false;
+    private static volatile Location latestLocation;
 
     private DutyConnection connection;
     private LocationManager locationManager;
@@ -83,6 +84,12 @@ public class LocationService extends Service implements LocationListener {
             if (locationManager.getAllProviders().contains(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 30000L, 25f, this, Looper.getMainLooper());
             }
+            Location lastKnown = null;
+            for (String provider : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER}) {
+                Location candidate = locationManager.getLastKnownLocation(provider);
+                if (candidate != null && (lastKnown == null || candidate.getTime() > lastKnown.getTime())) lastKnown = candidate;
+            }
+            if (lastKnown != null && System.currentTimeMillis() - lastKnown.getTime() < 120000L) onLocationChanged(lastKnown);
         } catch (SecurityException ignored) {
             stopSelf();
         }
@@ -92,6 +99,7 @@ public class LocationService extends Service implements LocationListener {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && "stop".equals(intent.getAction())) {
             if (locationManager != null) locationManager.removeUpdates(this);
+            clearLastLocation();
             if (connection != null) connection.stopDuty(); else stopSelf();
             return START_NOT_STICKY;
         }
@@ -103,6 +111,8 @@ public class LocationService extends Service implements LocationListener {
         if (token == null) { stopSelf(); return START_NOT_STICKY; }
         if (connection != null) connection.close();
         connection = new DutyConnection(this, token);
+        Location recent = latestLocation;
+        if (recent != null && System.currentTimeMillis() - recent.getTime() < 120000L) connection.location(new Location(recent));
         return START_NOT_STICKY;
     }
 
@@ -112,7 +122,16 @@ public class LocationService extends Service implements LocationListener {
         longitude = location.getLongitude();
         accuracy = location.hasAccuracy() ? location.getAccuracy() : 0.0f;
         updatedAt = location.getTime();
+        latestLocation = new Location(location);
         if (connection != null) connection.location(location);
+    }
+
+    private void clearLastLocation() {
+        latitude = 0.0;
+        longitude = 0.0;
+        accuracy = 0.0f;
+        updatedAt = 0L;
+        latestLocation = null;
     }
 
     @Override
@@ -126,6 +145,7 @@ public class LocationService extends Service implements LocationListener {
     public void onDestroy() {
         if (connection != null) connection.close();
         if (locationManager != null) locationManager.removeUpdates(this);
+        clearLastLocation();
         running = false;
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();

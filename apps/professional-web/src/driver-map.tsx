@@ -12,13 +12,16 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
   const drag = useRef<{ id: number; x: number; y: number; center: MapPoint } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
-  const followLocation = useRef(false);
-  const [center, setCenter] = useState<MapPoint>(INITIAL_CENTER);
+  const followLocation = useRef(true);
+  const [center, setCenter] = useState<MapPoint>(validMapPoint(location) ? location : INITIAL_CENTER);
   const [zoom, setZoom] = useState(14);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [tileError, setTileError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [placeOpen, setPlaceOpen] = useState(false);
+  const [currentPlace, setCurrentPlace] = useState('Localizando…');
+  const geocodeRef = useRef<{ key: string; controller?: AbortController; timer?: number }>({ key: '' });
+  const locationKey = validMapPoint(location) ? `${location.latitude.toFixed(3)},${location.longitude.toFixed(3)}` : '';
 
   useEffect(() => {
     if (!container.current) return;
@@ -29,6 +32,40 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!locationKey) {
+      setCurrentPlace('Aguardando localização');
+      geocodeRef.current.controller?.abort();
+      geocodeRef.current = { key: '' };
+      return;
+    }
+    const key = locationKey;
+    if (geocodeRef.current.key === key) return;
+    geocodeRef.current.controller?.abort();
+    if (geocodeRef.current.timer) window.clearTimeout(geocodeRef.current.timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      geocodeRef.current = { key, controller };
+      setCurrentPlace('Localizando…');
+      try {
+        const [latitude, longitude] = key.split(',').map(Number);
+        const url = new URL('https://nominatim.openstreetmap.org/reverse');
+        url.search = new URLSearchParams({ format: 'jsonv2', addressdetails: '1', zoom: '16', lat: String(latitude), lon: String(longitude) }).toString();
+        const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('reverse geocoding failed');
+        const result = await response.json() as { name?: string; address?: Record<string, string> };
+        const address = result.address || {};
+        const neighborhood = address.neighbourhood || address.suburb || address.quarter || address.residential;
+        const city = address.city || address.town || address.village || address.municipality;
+        setCurrentPlace([neighborhood || result.name, city].filter(Boolean).join(' · ') || 'Sua localização');
+      } catch {
+        if (!controller.signal.aborted) setCurrentPlace('Sua localização');
+      }
+    }, 1100);
+    geocodeRef.current = { key, controller, timer };
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [locationKey]);
 
   useEffect(() => {
     if (validMapPoint(location) && followLocation.current) {
@@ -105,7 +142,9 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
         onError={() => setTileError(true)}
       />)}
       </div>
-      {marker && <span className="driver-map__marker" aria-label="Sua localização no mapa" style={{ left: size.width / 2 + markerX * tileScale, top: size.height / 2 + markerY * tileScale }} />}
+      {marker && <div className="driver-you-marker" style={{ left: size.width / 2 + markerX * tileScale, top: size.height / 2 + markerY * tileScale }} aria-label={`Você: ${currentPlace}`}>
+        <span className="driver-you-marker__place">{currentPlace}</span><span className="driver-you-marker__dot"/><span className="driver-you-marker__caption">Você</span>
+      </div>}
       {(() => {
         const point = projectMapPoint(DEMO_PLACE, tileZoom);
         const x = ((point.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2;
