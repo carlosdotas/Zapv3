@@ -54,10 +54,12 @@
 .driver-you-marker__dot { width: 22px; height: 22px; border: 4px solid #fff; border-radius: 50%; background: #1a73e8; box-shadow: 0 2px 8px #0f172a80; }
 .driver-you-marker__caption { margin-top: 3px; padding: 2px 6px; border-radius: 8px; background: #fff; color: #0b5187; box-shadow: 0 1px 5px #0f172a40; font-size: 10px; font-weight: 900; }
 .driver-map__controls { top: auto; bottom: 110px; }
-.driver-call-marker { position: absolute; z-index: 2; display: grid; width: 64px; height: 64px; place-items: center; padding: 0; border: 0; background: transparent; transform: translate(-50%,-50%); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.driver-call-marker { position: absolute; z-index: 2; display: flex; width: 64px; height: 75px; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0; border: 0; background: transparent; transform: translate(-50%,-100%); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .driver-call-box { position: relative; display: block; width: 54px; height: 54px; }
 .driver-call-box::before { position: absolute; inset: 2px; border-radius: 10px; background: #ff5e00; content: ''; animation: driver-call-pulse 1.8s ease-out infinite; }
 .driver-call-box svg { position: relative; width: 100%; height: 100%; filter: drop-shadow(0 3px 5px #002b4970); animation: driver-call-wiggle 2.4s ease-in-out infinite; }
+.driver-call-arrow { width: 18px; height: 14px; margin-top: 2px; filter: drop-shadow(0 2px 2px #0006); animation: driver-you-arrow .9s ease-in-out infinite; }
+@keyframes driver-you-arrow { 0%,100% { transform: translateY(-2px); } 50% { transform: translateY(2px); } }
 .driver-place-sheet-backdrop { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; background: #02061766; animation: driver-sheet-shade .18s ease-out; }
 .driver-place-sheet { position: relative; display: flex; width: 100%; max-width: 600px; gap: 16px; margin-inline: auto; padding: 22px 20px max(22px,env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #fff; box-shadow: 0 -8px 32px #002b4930; animation: driver-sheet-rise .28s cubic-bezier(.2,.8,.2,1); }
 .driver-place-sheet__handle { position: absolute; top: 8px; left: 50%; width: 38px; height: 4px; border-radius: 4px; background: #cbd5e1; transform: translateX(-50%); }
