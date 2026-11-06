@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { DriverIcon } from './driver-icons';
 import { openStreetMapProvider, panMapPoint, projectMapPoint, validMapPoint, visibleMapTiles, type MapPoint } from './maps-provider';
 
-const INITIAL_CENTER: MapPoint = { latitude: -15.78, longitude: -47.93 };
+const INITIAL_CENTER: MapPoint = { latitude: -21.530729, longitude: -42.641844 };
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
 const DEMO_CALLS = [
-  { id: 'centro', place: 'Setor Central', km: '5 km', price: 'R$ 25,99', x: 0.32, y: 0.34 },
-  { id: 'jundiai', place: 'Jundiaí', km: '8 km', price: 'R$ 32,50', x: 0.68, y: 0.59 },
-  { id: 'jaiara', place: 'Vila Jaiara', km: '12 km', price: 'R$ 41,90', x: 0.50, y: 0.84 },
+  { id: 'centro', place: 'Centro de Leopoldina', km: '5 km', price: 'R$ 25,99', latitude: -21.5301, longitude: -42.6425 },
+  { id: 'jundiai', place: 'Praça Félix Martins', km: '8 km', price: 'R$ 32,50', latitude: -21.5289, longitude: -42.6425 },
+  { id: 'jaiara', place: 'Leopoldina, MG', km: '12 km', price: 'R$ 41,90', latitude: -21.5320, longitude: -42.6398 },
 ];
 
 export function DriverMap({ location }: { location: MapPoint | null }) {
@@ -16,9 +16,9 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
   const drag = useRef<{ id: number; x: number; y: number; center: MapPoint } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
-  const followLocation = useRef(true);
-  const [center, setCenter] = useState<MapPoint>(validMapPoint(location) ? location : INITIAL_CENTER);
-  const [zoom, setZoom] = useState(validMapPoint(location) ? 15 : 5);
+  const followLocation = useRef(false);
+  const [center, setCenter] = useState<MapPoint>(INITIAL_CENTER);
+  const [zoom, setZoom] = useState(14);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [tileError, setTileError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -109,7 +109,10 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
       />)}
       {marker && <span className="driver-map__marker" aria-label="Sua localização no mapa" style={{ left: size.width / 2 + markerX, top: size.height / 2 + markerY }} />}
       {DEMO_CALLS.map(call => {
-        return <div key={call.id} className="driver-call-marker" style={{ left: size.width * call.x, top: size.height * call.y }} aria-label={`Capital Encomendas, ${call.place}, ${call.km}, ${call.price}`}>
+        const point = projectMapPoint({ latitude: call.latitude, longitude: call.longitude }, tileZoom);
+        const x = ((point.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2;
+        const y = point.y - projectedCenter.y;
+        return <div key={call.id} className="driver-call-marker" style={{ left: size.width / 2 + x, top: size.height / 2 + y }} aria-label={`Capital Encomendas, ${call.place}, ${call.km}, ${call.price}`}>
           <div className="driver-call-card"><div className="driver-call-company"><span className="driver-call-avatar"><DriverIcon name="package" size={17}/></span><strong>Capital Encomendas</strong></div><strong className="driver-call-place">{call.place}</strong><div className="driver-call-details"><span>{call.km}</span><b>{call.price}</b></div></div>
           <div className="driver-call-box"><svg viewBox="0 0 64 62" aria-hidden="true"><path d="M32 3 59 16v28L32 58 5 44V16Z" fill="#dc2626" stroke="white" strokeWidth="3" strokeLinejoin="round"/><path d="m5 16 27 13 27-13M32 29v29" fill="none" stroke="white" strokeWidth="2"/><path d="m18 9.5 27 13" stroke="#fecaca" strokeWidth="3.5" strokeLinecap="round"/></svg></div><svg className="driver-call-arrow" viewBox="0 0 34 26" aria-hidden="true"><path d="M4 3 17 22 30 3" fill="none" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 3 17 22 30 3" fill="none" stroke="#dc2626" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>;
