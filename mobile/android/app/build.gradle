@@ -30,8 +30,8 @@ android {
         }
         transportadora {
             dimension 'perfil'
-            versionCode 7
-            versionName '0.7.0'
+            versionCode 8
+            versionName '0.8.0'
             applicationId 'br.com.zapencomendas.transportadora'
             resValue 'string', 'app_name', 'EncomendasZap Transportadora'
             buildConfigField 'String', 'WEB_URL', '"' + transportadoraUrl + '"'
