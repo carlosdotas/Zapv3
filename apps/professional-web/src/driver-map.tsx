@@ -6,7 +6,7 @@ import { openStreetMapProvider, panMapPoint, projectMapPoint, validMapPoint, vis
 const INITIAL_CENTER: MapPoint = { latitude: -16.62, longitude: -48.74 };
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
-const DEMO_PLACE = { name: 'Capital Encomendas', place: 'Centro, Leopoldo de Bulhões - GO', distance: '5 km', price: 'R$ 25,99', latitude: -16.62, longitude: -48.74 };
+const DEMO_PLACE = { name: 'Capital Encomendas', place: 'Centro, Leopoldo de Bulhões - GO', distance: '5 km', closingTime: 'Fecha às 18h', latitude: -16.62, longitude: -48.74 };
 
 type LocationStatus = 'searching'|'active'|'permission'|'gps_disabled'|'stale'|'unavailable'|'inactive'|'unsupported';
 const LOCATION_MESSAGES: Record<LocationStatus, string> = {
@@ -176,7 +176,7 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
         <div className="driver-place-sheet__content">
           <strong className="driver-place-sheet__title">{DEMO_PLACE.name}</strong>
           <span className="driver-place-sheet__address">{DEMO_PLACE.place}</span>
-          <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{DEMO_PLACE.distance}</span><b>{DEMO_PLACE.price}</b></div>
+          <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{DEMO_PLACE.distance}</span><b>{DEMO_PLACE.closingTime}</b></div>
         </div>
       </section>
     </div>, document.body)}
