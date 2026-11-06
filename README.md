@@ -83,4 +83,4 @@ A geração e publicação dos arquivos PHP estão descritas em [Manutenção do
 
 A divisão dos adaptadores e seus caminhos de compatibilidade estão descritos em [Adaptadores da API](docs/adaptadores.md).
 
-O [relatório final da refatoração](REFATORACAO_ESTRUTURAL_V3.md) reúne as etapas executadas, a arquitetura atual, as verificações e os limites da validação.
+Os relatórios [da auditoria](AUDITORIA_ESTRUTURAL_V3.md) e [da refatoração inicial](REFATORACAO_ESTRUTURAL_V3.md) documentam o checkout de origem antes da cópia. Para o estado atual deste repositório, consulte `docs/ESTADO_ATUAL.md`, `docs/ARQUITETURA.md` e `docs/DECISOES_ESTRUTURAIS.md`, começando pelas instruções em `AGENTS.md`.
