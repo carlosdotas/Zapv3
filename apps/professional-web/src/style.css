@@ -49,3 +49,4 @@
 @media (max-height: 670px) { .driver-offline__main { padding-block: 12px; }.driver-welcome { padding: 16px; }.driver-welcome__icon { width: 60px; height: 60px; margin-bottom: 12px; }.driver-welcome > p { margin-bottom: 10px; }.driver-features { padding-top: 8px; }.incoming-call__body { gap: 8px; padding: 14px 20px; } }
 .driver-map__controls button { border-radius: 50%; background: #fff; color: #1a73e8; box-shadow: 0 2px 7px #0f172a30; }
 .driver-map__scale { position: absolute; inset: 0; transform-origin: center; }
+.driver-map__controls { top: auto; bottom: 110px; }
