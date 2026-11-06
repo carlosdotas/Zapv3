@@ -5,11 +5,7 @@ import { openStreetMapProvider, panMapPoint, projectMapPoint, validMapPoint, vis
 const INITIAL_CENTER: MapPoint = { latitude: -16.62, longitude: -48.74 };
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
-const DEMO_CALLS = [
-  { id: 'centro', place: 'Centro', km: '5 km', price: 'R$ 25,99', latitude: -16.62, longitude: -48.74 },
-  { id: 'jundiai', place: 'Setor Central', km: '8 km', price: 'R$ 32,50', latitude: -16.6168, longitude: -48.7368 },
-  { id: 'jaiara', place: 'Leopoldo de Bulhões, GO', km: '12 km', price: 'R$ 41,90', latitude: -16.6233, longitude: -48.7440 },
-];
+const DEMO_PLACE = { name: 'Capital Encomendas', place: 'Centro, Leopoldo de Bulhões - GO', distance: '5 km', price: 'R$ 25,99', latitude: -16.62, longitude: -48.74 };
 
 export function DriverMap({ location }: { location: MapPoint | null }) {
   const container = useRef<HTMLDivElement>(null);
@@ -22,6 +18,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [tileError, setTileError] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [placeOpen, setPlaceOpen] = useState(false);
 
   useEffect(() => {
     if (!container.current) return;
@@ -41,7 +38,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
   }, [location?.latitude, location?.longitude]);
 
   function beginDrag(event: PointerEvent<HTMLDivElement>) {
-    if ((event.target as HTMLElement).closest('button,a')) return;
+    if ((event.target as HTMLElement).closest('button,a,[role="button"]')) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.current.size === 2) {
@@ -109,19 +106,30 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
       />)}
       </div>
       {marker && <span className="driver-map__marker" aria-label="Sua localização no mapa" style={{ left: size.width / 2 + markerX * tileScale, top: size.height / 2 + markerY * tileScale }} />}
-      {DEMO_CALLS.map(call => {
-        const point = projectMapPoint({ latitude: call.latitude, longitude: call.longitude }, tileZoom);
+      {(() => {
+        const point = projectMapPoint(DEMO_PLACE, tileZoom);
         const x = ((point.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2;
         const y = point.y - projectedCenter.y;
-        return <div key={call.id} className="driver-call-marker" style={{ left: size.width / 2 + x * tileScale, top: size.height / 2 + y * tileScale }} aria-label={`Capital Encomendas, ${call.place}, ${call.km}, ${call.price}`}>
-          <div className="driver-call-card"><div className="driver-call-company"><span className="driver-call-avatar"><DriverIcon name="package" size={17}/></span><strong>Capital Encomendas</strong></div><strong className="driver-call-place">{call.place}</strong><div className="driver-call-details"><span>{call.km}</span><b>{call.price}</b></div></div>
-          <div className="driver-call-box"><svg viewBox="0 0 64 62" aria-hidden="true"><path d="M32 3 59 16v28L32 58 5 44V16Z" fill="#ff5e00" stroke="white" strokeWidth="3" strokeLinejoin="round"/><path d="m5 16 27 13 27-13M32 29v29" fill="none" stroke="white" strokeWidth="2"/><path d="m18 9.5 27 13" stroke="#ffddb9" strokeWidth="3.5" strokeLinecap="round"/></svg></div><svg className="driver-call-arrow" viewBox="0 0 34 26" aria-hidden="true"><path d="M4 3 17 22 30 3" fill="none" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 3 17 22 30 3" fill="none" stroke="#0b5187" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </div>;
-      })}
+        return <button type="button" className="driver-call-marker" style={{ left: size.width / 2 + x * tileScale, top: size.height / 2 + y * tileScale }} aria-label={`Ver detalhes de ${DEMO_PLACE.name} em ${DEMO_PLACE.place}`} onClick={() => setPlaceOpen(true)}>
+          <span className="driver-call-box"><svg viewBox="0 0 64 62" aria-hidden="true"><path d="M32 3 59 16v28L32 58 5 44V16Z" fill="#ff5e00" stroke="white" strokeWidth="3" strokeLinejoin="round"/><path d="m5 16 27 13 27-13M32 29v29" fill="none" stroke="white" strokeWidth="2"/><path d="m18 9.5 27 13" stroke="#ffddb9" strokeWidth="3.5" strokeLinecap="round"/></svg></span>
+        </button>;
+      })()}
     </div>
     <div className="driver-map__controls" aria-label="Controles do mapa">
       <button type="button" onClick={recenter} disabled={!validMapPoint(location)} aria-label="Centralizar na minha localização" title="Centralizar na minha localização"><DriverIcon name="location" size={22}/></button>
     </div>
+    {placeOpen && <div className="driver-place-sheet-backdrop" onClick={() => setPlaceOpen(false)}>
+      <section className="driver-place-sheet" role="dialog" aria-modal="true" aria-label={`Detalhes de ${DEMO_PLACE.name}`} onClick={event => event.stopPropagation()}>
+        <div className="driver-place-sheet__handle" />
+        <button type="button" className="driver-place-sheet__close" onClick={() => setPlaceOpen(false)} aria-label="Fechar detalhes">×</button>
+        <div className="driver-place-sheet__photo"><DriverIcon name="package" size={30}/><span>Foto</span></div>
+        <div className="driver-place-sheet__content">
+          <strong className="driver-place-sheet__title">{DEMO_PLACE.name}</strong>
+          <span className="driver-place-sheet__address">{DEMO_PLACE.place}</span>
+          <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{DEMO_PLACE.distance}</span><b>{DEMO_PLACE.price}</b></div>
+        </div>
+      </section>
+    </div>}
     {!validMapPoint(location) && <div className="driver-map__waiting" role="status">Aguardando localização do aparelho</div>}
     {tileError && <div className="driver-map__error" role="status">Não foi possível carregar o mapa. Verifique a conexão. <button type="button" onClick={() => { setTileError(false); setRetry(value => value + 1); }}>Tentar novamente</button></div>}
     <a className="driver-map__credit" href="https://www.openstreetmap.org/copyright" rel="noreferrer">© colaboradores do OpenStreetMap</a>
