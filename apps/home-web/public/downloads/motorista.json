@@ -1,9 +1,9 @@
 {
   "packageName": "br.com.zapencomendas.motorista.debug",
-  "versionCode": 16,
-  "versionName": "0.16.0-debug",
+  "versionCode": 17,
+  "versionName": "0.17.0-debug",
   "flavor": "motorista",
-  "sha256": "b5b9c47225ab7edb33832e242ac288787f8ede796f93465794af693bf3937e38",
-  "size": 4171353,
+  "sha256": "ec344b7de7c66bec09d04f90bf962335a659af878d939dbb3bfdb8e8ad58839b",
+  "size": 4175329,
   "apkUrl": "https://dotas.site/downloads/encomendaszap-motorista.apk"
 }

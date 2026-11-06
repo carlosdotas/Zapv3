@@ -42,7 +42,7 @@ test.skipIf(!enabled)('SQL: tenant isolation, target validation, atomic response
  await expect(store.create('company-user','company','pro',{latitude:999,longitude:0})).rejects.toThrow('INVALID_DETAILS');
  await store.location('pro',-16.68,-49.25,15,new Date().toISOString());
  const call=await store.create('company-user','company','pro',{pickupName:'Loja Central',pickupAddress:'Rua Um, 123',latitude:-16.68,longitude:-49.24});
- expect(call).toMatchObject({companyName:'Empresa',pickupName:'Loja Central',pickupAddress:'Rua Um, 123'});
+ expect(call).toMatchObject({companyName:'Empresa',pickupName:'Loja Central',pickupAddress:'Rua Um, 123',pickupLatitude:-16.68,pickupLongitude:-49.24});
  expect(call.distanceKm).toBeGreaterThan(1); expect(call.distanceKm).toBeLessThan(1.2);
  expect(Date.parse(call.expiresAt)-Date.now()).toBeGreaterThan(118000);
  expect(Date.parse(call.expiresAt)-Date.now()).toBeLessThanOrEqual(120000);

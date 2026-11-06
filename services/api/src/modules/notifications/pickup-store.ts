@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { distanceKm, validatePickupDetails } from './pickup-details.js';
-export type Call = { id: string; companyId: string; professionalId: string; status: string; expiresAt: string; companyName: string; pickupName: string | null; pickupAddress: string | null; distanceKm: number | null };
+export type Call = { id: string; companyId: string; professionalId: string; status: string; expiresAt: string; companyName: string; pickupName: string | null; pickupAddress: string | null; distanceKm: number | null; pickupLatitude: number | null; pickupLongitude: number | null };
 type Row = RowDataPacket & { id: string; company_id: string; professional_user_id: string; status: string; expires_at: Date };
-const mapCall = (r: Row): Call => ({ id: r.id, companyId: r.company_id, professionalId: r.professional_user_id, status: r.status, expiresAt: new Date(r.expires_at).toISOString(), companyName: r.display_company_name, pickupName: r.pickup_name ?? null, pickupAddress: r.pickup_address ?? null, distanceKm: r.distance_km == null ? null : Number(r.distance_km) });
-const detailColumns = 't.*,COALESCE(d.company_name,c.name) AS display_company_name,d.pickup_name,d.pickup_address,d.distance_km';
+const mapCall = (r: Row): Call => ({ id: r.id, companyId: r.company_id, professionalId: r.professional_user_id, status: r.status, expiresAt: new Date(r.expires_at).toISOString(), companyName: r.display_company_name, pickupName: r.pickup_name ?? null, pickupAddress: r.pickup_address ?? null, distanceKm: r.distance_km == null ? null : Number(r.distance_km), pickupLatitude: r.pickup_latitude == null ? null : Number(r.pickup_latitude), pickupLongitude: r.pickup_longitude == null ? null : Number(r.pickup_longitude) });
+const detailColumns = 't.*,COALESCE(d.company_name,c.name) AS display_company_name,d.pickup_name,d.pickup_address,d.distance_km,d.pickup_latitude,d.pickup_longitude';
 export class PickupStore {
   constructor(private pool: Pool) {}
   private async getCall(id: string, db: Pool | PoolConnection = this.pool) {

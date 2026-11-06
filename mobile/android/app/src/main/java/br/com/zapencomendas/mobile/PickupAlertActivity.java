@@ -12,8 +12,12 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.net.Uri;
 import android.view.Gravity;
 import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -28,6 +32,7 @@ public final class PickupAlertActivity extends Activity {
     private TextView countdown;
     private TextView details;
     private TextView message;
+    private WebView map;
     private Button accept;
     private Button reject;
     private boolean awaiting;
@@ -67,6 +72,14 @@ public final class PickupAlertActivity extends Activity {
         countdown = new TextView(this); countdown.setTextColor(Color.rgb(203,213,225)); countdown.setTextSize(14); countdown.setGravity(Gravity.CENTER); countdown.setPadding(0,0,0,padding/2);
         details = new TextView(this); details.setTextColor(Color.rgb(30,41,59)); details.setTextSize(16); details.setGravity(Gravity.START); details.setPadding(padding,padding,padding,padding); showDetails(getIntent());
         ScrollView detailsScroll = new ScrollView(this); detailsScroll.setBackground(rounded(Color.WHITE,20)); detailsScroll.addView(details);
+        map = new WebView(this);
+        map.getSettings().setJavaScriptEnabled(true);
+        map.getSettings().setAllowFileAccess(false);
+        map.getSettings().setAllowContentAccess(false);
+        map.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return true; }
+        });
+        showMap(getIntent());
         message = new TextView(this); message.setTextColor(Color.WHITE); message.setGravity(Gravity.CENTER);
         accept = new Button(this); accept.setText("Aceitar chamada"); accept.setAllCaps(false); accept.setTypeface(null,Typeface.BOLD); accept.setTextColor(Color.WHITE); accept.setBackground(rounded(Color.rgb(5,150,105),14));
         reject = new Button(this); reject.setText("Recusar"); reject.setAllCaps(false); reject.setTypeface(null,Typeface.BOLD); reject.setTextColor(Color.rgb(190,18,60)); reject.setBackground(rounded(Color.rgb(255,241,242),14));
@@ -74,7 +87,10 @@ public final class PickupAlertActivity extends Activity {
         LinearLayout actions = new LinearLayout(this); actions.setOrientation(LinearLayout.HORIZONTAL); actions.setPadding(0,padding/2,0,0);
         LinearLayout.LayoutParams rejectSize = new LinearLayout.LayoutParams(0,(int)(52*getResources().getDisplayMetrics().density),1); rejectSize.setMargins(0,0,padding/3,0);
         actions.addView(reject,rejectSize); actions.addView(accept,new LinearLayout.LayoutParams(0,(int)(52*getResources().getDisplayMetrics().density),1.4f));
-        layout.addView(eyebrow); layout.addView(title); layout.addView(countdown); layout.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1)); layout.addView(message); layout.addView(actions);
+        layout.addView(eyebrow); layout.addView(title); layout.addView(countdown);
+        layout.addView(map, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        layout.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (int)(140 * getResources().getDisplayMetrics().density)));
+        layout.addView(message); layout.addView(actions);
         setContentView(layout);
         IntentFilter filter = new IntentFilter(STATUS_ACTION);
         androidx.core.content.ContextCompat.registerReceiver(this, statusReceiver, filter,
@@ -90,7 +106,27 @@ public final class PickupAlertActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (!readCall(intent)) { finish(); return; }
-        showDetails(intent); responseAttempt++; awaiting = false; accept.setEnabled(true); reject.setEnabled(true); message.setText("");
+        showDetails(intent); showMap(intent); responseAttempt++; awaiting = false; accept.setEnabled(true); reject.setEnabled(true); message.setText("");
+    }
+
+    private void showMap(Intent intent) {
+        Uri.Builder params = new Uri.Builder();
+        double lat = intent.getDoubleExtra("pickupLatitude", Double.NaN);
+        double lon = intent.getDoubleExtra("pickupLongitude", Double.NaN);
+        if (Double.isFinite(lat) && Math.abs(lat) <= 85 && Double.isFinite(lon) && Math.abs(lon) <= 180) {
+            params.appendQueryParameter("dlat", Double.toString(lat)).appendQueryParameter("dlon", Double.toString(lon));
+        }
+        if (LocationService.running && LocationService.updatedAt > 0 && System.currentTimeMillis() - LocationService.updatedAt < 120000L) {
+            params.appendQueryParameter("olat", Double.toString(LocationService.latitude)).appendQueryParameter("olon", Double.toString(LocationService.longitude));
+        }
+        try (java.util.Scanner scanner = new java.util.Scanner(getAssets().open("pickup-map.html"), "UTF-8").useDelimiter("\\A")) {
+            String html = scanner.hasNext() ? scanner.next() : "";
+            String query = params.build().getEncodedQuery();
+            html = html.replace("new URLSearchParams(location.search)", "new URLSearchParams(" + org.json.JSONObject.quote(query == null ? "" : query) + ")");
+            map.loadDataWithBaseURL("https://profissional.dotas.site/", html, "text/html", "UTF-8", null);
+        } catch (java.io.IOException failure) {
+            map.loadData("<p>Mapa indisponível.</p>", "text/html", "UTF-8");
+        }
     }
 
     private void showDetails(Intent intent) {
@@ -132,6 +168,7 @@ public final class PickupAlertActivity extends Activity {
     @Override protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         if (countdown != null) unregisterReceiver(statusReceiver);
+        if (map != null) map.destroy();
         super.onDestroy();
     }
 }

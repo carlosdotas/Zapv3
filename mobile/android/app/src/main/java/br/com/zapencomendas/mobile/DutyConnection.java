@@ -105,20 +105,34 @@ final class DutyConnection {
             alert.putExtra("pickupName",details.optString("pickupName", ""));
             alert.putExtra("pickupAddress",details.optString("pickupAddress", ""));
             if (!details.isNull("distanceKm")) alert.putExtra("distanceKm",details.optDouble("distanceKm", Double.NaN));
+            if (!details.isNull("pickupLatitude") && !details.isNull("pickupLongitude")) {
+                alert.putExtra("pickupLatitude",details.optDouble("pickupLatitude", Double.NaN));
+                alert.putExtra("pickupLongitude",details.optDouble("pickupLongitude", Double.NaN));
+            }
         }
         PendingIntent open=PendingIntent.getActivity(service,0,alert,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder notification=new Notification.Builder(service,CHANNEL).setSmallIcon(R.drawable.ic_launcher)
-            .setContentTitle("Chamada de coleta — teste").setContentText("Aceite ou recuse antes de a chamada expirar.")
+            .setContentTitle(detail(details,"pickupName","Local de coleta não informado"))
+            .setContentText(detail(details,"companyName","Transportadora não informada"))
+            .setLargeIcon(notificationIcon())
             .setContentIntent(open).setCategory(Notification.CATEGORY_CALL).setTimeoutAfter(remaining).setAutoCancel(false)
-            .addAction(new Notification.Action.Builder(null,"Aceitar",action(id,"accepted")).build())
-            .addAction(new Notification.Action.Builder(null,"Recusar",action(id,"rejected")).build());
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .addAction(new Notification.Action.Builder(null,"Visualizar",open).build());
         if (first) notification.setFullScreenIntent(open,true);
         try {manager.notify(id,8200,notification.build());} catch(SecurityException ignored){}
         handler.postDelayed(()->alertPending(id,false),Math.min(8000,remaining));
     }
-    private PendingIntent action(String id,String answer) {
-        Intent intent=new Intent(service,LocationService.class).setAction("respond").setData(android.net.Uri.parse("zap://pickup/"+id+"/"+answer)).putExtra("id",id).putExtra("answer",answer);
-        return PendingIntent.getService(service,0,intent,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+    private String detail(JSONObject details,String key,String fallback) {
+        if (details == null || details.isNull(key)) return fallback;
+        String value=details.optString(key, "").trim();
+        return value.isEmpty() || "null".equals(value) ? fallback : value;
+    }
+    private android.graphics.Bitmap notificationIcon() {
+        android.graphics.drawable.Drawable drawable=androidx.core.content.ContextCompat.getDrawable(service,R.drawable.ic_launcher);
+        if (drawable == null) return null;
+        android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(96,96,android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas=new android.graphics.Canvas(bitmap);
+        drawable.setBounds(0,0,96,96); drawable.draw(canvas); return bitmap;
     }
     void respond(String id,String answer) {
         if (!socket.connected() || stopping) {publishStatus(id,"unavailable");return;}
