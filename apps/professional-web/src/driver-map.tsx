@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { DriverIcon } from './driver-icons';
 import { openStreetMapProvider, panMapPoint, projectMapPoint, validMapPoint, visibleMapTiles, type MapPoint } from './maps-provider';
 
@@ -158,7 +159,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
     <div className="driver-map__controls" aria-label="Controles do mapa">
       <button type="button" onClick={recenter} disabled={!validMapPoint(location)} aria-label="Centralizar na minha localização" title="Centralizar na minha localização"><DriverIcon name="location" size={22}/></button>
     </div>
-    {placeOpen && <div className="driver-place-sheet-backdrop" onClick={() => setPlaceOpen(false)}>
+    {placeOpen && createPortal(<div className="driver-place-sheet-backdrop" onClick={() => setPlaceOpen(false)}>
       <section className="driver-place-sheet" role="dialog" aria-modal="true" aria-label={`Detalhes de ${DEMO_PLACE.name}`} onClick={event => event.stopPropagation()}>
         <div className="driver-place-sheet__handle" />
         <button type="button" className="driver-place-sheet__close" onClick={() => setPlaceOpen(false)} aria-label="Fechar detalhes">×</button>
@@ -169,7 +170,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
           <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{DEMO_PLACE.distance}</span><b>{DEMO_PLACE.price}</b></div>
         </div>
       </section>
-    </div>}
+    </div>, document.body)}
     {!validMapPoint(location) && <div className="driver-map__waiting" role="status">Aguardando localização do aparelho</div>}
     {tileError && <div className="driver-map__error" role="status">Não foi possível carregar o mapa. Verifique a conexão. <button type="button" onClick={() => { setTileError(false); setRetry(value => value + 1); }}>Tentar novamente</button></div>}
     <a className="driver-map__credit" href="https://www.openstreetmap.org/copyright" rel="noreferrer">© colaboradores do OpenStreetMap</a>
