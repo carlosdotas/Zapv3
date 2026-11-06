@@ -39,16 +39,22 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const companyRef = useRef('');
+  const driversRequest = useRef(0);
+  const lastDriversRefresh = useRef<{ company: string; at: number }>({ company: '', at: 0 });
   const locationRequest = useRef(0);
   const canSetup = user.roles.includes('platform_admin') && user.roles.includes('professional');
 
   const refreshDrivers = useCallback((client: Socket, selectedCompany: string) => {
     if (!client.connected || !selectedCompany) return;
+    const now = Date.now();
+    if (lastDriversRefresh.current.company === selectedCompany && now - lastDriversRefresh.current.at < 500) return;
+    lastDriversRefresh.current = { company: selectedCompany, at: now };
+    const request = ++driversRequest.current;
     setRefreshing(true);
     client.timeout(10000).emit('professional:list', { companyId: selectedCompany }, (failure: Error | null, result?: Reply<Driver[]>) => {
-      if (companyRef.current !== selectedCompany) return;
+      if (companyRef.current !== selectedCompany || request !== driversRequest.current) return;
       setRefreshing(false);
-      if (failure || result?.error || !result?.data) { setMessage(result?.error || 'Não foi possível atualizar os motoristas.'); return; }
+      if (failure || result?.error || !result?.data) { setDrivers([]); setMessage(result?.error || 'Não foi possível atualizar os motoristas.'); return; }
       setDrivers(result.data);
     });
   }, []);
@@ -65,7 +71,7 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
       });
       client.emit('pickup:sync', {}, (result: Reply<Call[]>) => { if (result.data) setCalls(result.data); });
     });
-    client.on('disconnect', () => setConnected(false));
+    client.on('disconnect', () => { driversRequest.current++; lastDriversRefresh.current = { company: '', at: 0 }; setConnected(false); setDrivers([]); setRefreshing(false); });
     client.on('connect_error', () => { setConnected(false); setMessage('Conexão indisponível. Tentando reconectar.'); });
     client.on('pickup:updated', (call: Call) => setCalls(current => [call, ...current.filter(item => item.id !== call.id)].slice(0, 100)));
     return () => { client.disconnect(); };
@@ -81,16 +87,23 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
 
   const matchingDrivers = useMemo(() => {
     const search = phoneDigits(phone);
-    return search ? drivers.filter(driver => phoneDigits(driver.phone).includes(search)) : drivers;
+    return drivers.filter(driver => Boolean(driver.online) && (!search || phoneDigits(driver.phone).includes(search)));
   }, [drivers, phone]);
   const selected = matchingDrivers.find(driver => driver.id === driverId);
   const currentCalls = calls.filter(call => call.companyId === companyId);
+
+  useEffect(() => {
+    const digits = phoneDigits(phone);
+    if (digits.length < 10) return;
+    const exact = drivers.filter(driver => driver.online && phoneDigits(driver.phone) === digits);
+    if (exact.length === 1) setDriverId(exact[0].id);
+  }, [drivers, phone]);
 
   function updatePhone(value: string) {
     const formatted = formatPhone(value);
     setPhone(formatted);
     const digits = phoneDigits(formatted);
-    const exact = drivers.filter(driver => digits.length >= 10 && phoneDigits(driver.phone) === digits);
+    const exact = drivers.filter(driver => driver.online && digits.length >= 10 && phoneDigits(driver.phone) === digits);
     setDriverId(exact.length === 1 ? exact[0].id : '');
   }
 
@@ -143,20 +156,20 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
 
         {canSetup && <div className="company-self-test"><div><strong>Quer testar no seu próprio telefone?</strong><p>Prepare uma transportadora de teste e vincule sua conta de motorista. Nenhum pedido será criado.</p></div><button type="button" onClick={setupSelfTest} disabled={!connected || busy}>Usar meu número para teste</button></div>}
 
-        <label className="company-field">Transportadora<select value={companyId} onChange={event => { companyRef.current = event.target.value; setCompanyId(event.target.value); setRefreshing(false); setDrivers([]); setDriverId(''); setPhone(''); }}><option value="">Selecione a transportadora</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
+        <label className="company-field">Transportadora<select value={companyId} onChange={event => { driversRequest.current++; lastDriversRefresh.current = { company: '', at: 0 }; companyRef.current = event.target.value; setCompanyId(event.target.value); setRefreshing(false); setDrivers([]); setDriverId(''); setPhone(''); }}><option value="">Selecione a transportadora</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
         {!companies.length && connected && <p className="company-hint">Nenhuma transportadora disponível. {canSetup ? 'Use seu número para preparar um teste.' : 'Peça à administração para vincular sua conta.'}</p>}
 
-        <label className="company-field">Telefone do motorista<input type="tel" inputMode="tel" autoComplete="off" value={phone} onChange={event => updatePhone(event.target.value)} placeholder="(62) 99999-9999" disabled={!companyId} /></label>
-        <p className="company-hint">Digite o telefone de um motorista já vinculado à transportadora ou escolha na lista.</p>
-        <label className="company-field">Motorista<select value={selected?.id || ''} onChange={event => { const chosen = drivers.find(driver => driver.id === event.target.value); setDriverId(event.target.value); if (chosen) setPhone(formatPhone(chosen.phone)); }} disabled={!companyId}><option value="">Selecione o motorista</option>{matchingDrivers.map(driver => <option key={driver.id} value={driver.id}>{driver.name} — {formatPhone(driver.phone)} — {driver.online ? 'em serviço' : 'fora de serviço'}</option>)}</select></label>
-        {phone && companyId && !matchingDrivers.length && <p className="company-hint">Nenhum motorista vinculado encontrado com esse telefone.</p>}
+        <label className="company-field">Telefone do motorista<input type="tel" inputMode="tel" autoComplete="off" value={phone} onFocus={() => socket && refreshDrivers(socket, companyId)} onChange={event => updatePhone(event.target.value)} placeholder="(62) 99999-9999" disabled={!companyId} /></label>
+        <p className="company-hint">Digite o telefone de um motorista em serviço vinculado à transportadora ou escolha na lista.</p>
+        <label className="company-field">Motoristas em serviço<select value={selected?.id || ''} onFocus={() => socket && refreshDrivers(socket, companyId)} onPointerDown={() => socket && refreshDrivers(socket, companyId)} onChange={event => { const chosen = matchingDrivers.find(driver => driver.id === event.target.value); setDriverId(event.target.value); if (chosen) setPhone(formatPhone(chosen.phone)); }} disabled={!companyId || !connected}><option value="">{refreshing ? 'Atualizando motoristas...' : 'Selecione o motorista'}</option>{matchingDrivers.map(driver => <option key={driver.id} value={driver.id}>{driver.name} — {formatPhone(driver.phone)}</option>)}</select></label>
+        {companyId && connected && !refreshing && !matchingDrivers.length && <p className="company-hint">{phone ? 'Nenhum motorista em serviço encontrado com esse telefone.' : 'Nenhum motorista vinculado está em serviço no momento.'}</p>}
         {selected && <div className={`company-driver-status${selected.online ? ' company-driver-status--online' : ''}`}><span />{selected.online ? 'Motorista em serviço, pronto para receber.' : 'Motorista fora de serviço. Peça para abrir o aplicativo e entrar em serviço.'}</div>}
-        <button className="company-refresh" type="button" onClick={() => socket && refreshDrivers(socket, companyId)} disabled={!connected || !companyId || refreshing}>{refreshing ? 'Atualizando...' : 'Atualizar disponibilidade'}</button>
+        <button className="company-refresh" type="button" onClick={() => socket && refreshDrivers(socket, companyId)} disabled={!connected || !companyId || refreshing}>{refreshing ? 'Buscando motoristas em serviço...' : 'Buscar motoristas em serviço'}</button>
         <label className="company-field">Nome do local da coleta<input value={pickupName} onChange={event => setPickupName(event.target.value)} maxLength={160} placeholder="Ex.: Loja Central" /></label>
         <label className="company-field">Endereço da coleta<input value={pickupAddress} onChange={event => { locationRequest.current++; setLocating(false); setPickupLocation(null); setPickupAddress(event.target.value); }} maxLength={300} placeholder="Rua, número, bairro e cidade" /></label>
         <button className="company-refresh" type="button" onClick={locatePickup} disabled={locating || !pickupAddress.trim()}>{locating ? 'Obtendo localização...' : pickupLocation ? 'Localização da coleta registrada' : 'Estou no local: usar minha localização'}</button>
         <p className="company-hint">Use a localização somente se você estiver no endereço da coleta. Sem ela ou sem GPS recente do motorista, a distância não será exibida.</p>
-        <button className="primary-button company-send" type="button" onClick={sendCall} disabled={!connected || !companyId || !selected || !selected.online || busy || !pickupName.trim() || !pickupAddress.trim()}><Icon name="phone" size={18} />{busy ? 'Aguarde...' : 'Enviar chamada de teste'}</button>
+        <button className="primary-button company-send" type="button" onClick={sendCall} disabled={!connected || !companyId || !selected || !selected.online || refreshing || busy || !pickupName.trim() || !pickupAddress.trim()}><Icon name="phone" size={18} />{busy ? 'Aguarde...' : 'Enviar chamada de teste'}</button>
         {message && <p className="company-message" role="status">{message}</p>}
 
         <div className="company-history"><h2>Últimas chamadas</h2>{currentCalls.length ? <ul>{currentCalls.map(call => <li key={call.id}><span>{labels[call.status] || 'Atualização da chamada'}</span><small>{new Date(call.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small></li>)}</ul> : <p>Suas chamadas de teste aparecerão aqui.</p>}</div>
