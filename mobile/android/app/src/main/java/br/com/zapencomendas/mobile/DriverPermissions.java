@@ -27,11 +27,8 @@ final class DriverPermissions {
     void start(Runnable action) {
         if (ready != null) return;
         ready = action;
-        waiting = true;
-        dialog = new AlertDialog.Builder(activity).setTitle("Iniciar serviço")
-            .setMessage("Para entrar em serviço, autorize a localização precisa e selecione ‘Permitir o tempo todo’, além das notificações e chamadas em tela cheia. A localização é coletada somente enquanto você estiver em serviço, inclusive com a tela bloqueada.")
-            .setPositiveButton("Conferir e continuar", (d,w) -> { waiting = false; resume(); })
-            .setNegativeButton("Agora não", (d,w) -> cancel()).setOnCancelListener(d -> cancel()).show();
+        waiting = false;
+        resume();
     }
     void onResume() { resumed = true; resume(); }
     void onPause() { resumed = false; }
@@ -48,24 +45,15 @@ final class DriverPermissions {
 
     void advance() {
         if (ready == null || waiting || !resumed || activity.isFinishing()) return;
-        if (Build.VERSION.SDK_INT >= 33 && !granted(Manifest.permission.POST_NOTIFICATIONS)) {
-            request(Manifest.permission.POST_NOTIFICATIONS, NOTIFICATIONS, "notifications_requested", "Permita as notificações para receber chamadas."); return;
-        }
         if (!precise()) {
             request(Manifest.permission.ACCESS_FINE_LOCATION, LOCATION, "driver_location_requested", "Permita a localização precisa para entrar em serviço."); return;
         }
         if (!backgroundLocation()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                settings("Para receber coletas e compartilhar sua posição enquanto estiver em serviço, abra Permissões > Localização e selecione ‘Permitir o tempo todo’. A localização para ao sair de serviço.",
-                    new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + activity.getPackageName())), this::backgroundLocation);
-            } else {
-                waiting = true;
-                dialog = new AlertDialog.Builder(activity).setTitle("Localização em segundo plano")
-                    .setMessage("Para compartilhar sua posição e receber coletas enquanto estiver em serviço, selecione ‘Permitir o tempo todo’. A localização para ao sair de serviço.")
-                    .setPositiveButton("Continuar", (d,w) -> { waiting = false; request(Manifest.permission.ACCESS_BACKGROUND_LOCATION, BACKGROUND_LOCATION, "driver_background_location_requested", "Selecione ‘Permitir o tempo todo’ nas permissões de localização."); })
-                    .setNegativeButton("Agora não", (d,w) -> denied()).setOnCancelListener(d -> denied()).show();
-            }
+            request(Manifest.permission.ACCESS_BACKGROUND_LOCATION, BACKGROUND_LOCATION, "driver_background_location_requested", "Para receber coletas enquanto estiver em serviço, abra Permissões > Localização e selecione ‘Permitir o tempo todo’. A localização para ao sair de serviço.");
             return;
+        }
+        if (Build.VERSION.SDK_INT >= 33 && !granted(Manifest.permission.POST_NOTIFICATIONS)) {
+            request(Manifest.permission.POST_NOTIFICATIONS, NOTIFICATIONS, "notifications_requested", "Permita as notificações para receber chamadas."); return;
         }
         if (!gps()) { settings("Ative o GPS do aparelho para compartilhar sua localização durante o serviço.",
             new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS), this::gps); return; }
@@ -94,6 +82,16 @@ final class DriverPermissions {
         if (code == LOCATION) asked |= activity.getPreferences(Activity.MODE_PRIVATE).getBoolean("driver_location_prompt_shown", false);
         if (asked && !activity.shouldShowRequestPermissionRationale(permission)) {
             settings(explanation, new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + activity.getPackageName())), () -> granted(permission)); return;
+        }
+        if (code == BACKGROUND_LOCATION && activity.shouldShowRequestPermissionRationale(permission)) {
+            waiting = true;
+            dialog = new AlertDialog.Builder(activity).setTitle("Localização durante o serviço")
+                .setMessage(explanation)
+                .setPositiveButton("Continuar", (d,w) -> {
+                    activity.getPreferences(Activity.MODE_PRIVATE).edit().putBoolean(key, true).apply();
+                    activity.requestPermissions(new String[]{permission}, code);
+                }).setNegativeButton("Agora não", (d,w) -> denied()).setOnCancelListener(d -> denied()).show();
+            return;
         }
         waiting = true;
         activity.getPreferences(Activity.MODE_PRIVATE).edit().putBoolean(key, true).apply();

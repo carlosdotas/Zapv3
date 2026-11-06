@@ -23,15 +23,15 @@ android {
         motorista {
             dimension 'perfil'
             applicationId 'br.com.zapencomendas.motorista'
-            versionCode 21
-            versionName '0.21.0'
+            versionCode 22
+            versionName '0.22.0'
             resValue 'string', 'app_name', 'EncomendasZap Motorista'
             buildConfigField 'String', 'WEB_URL', '"' + motoristaUrl + '"'
         }
         transportadora {
             dimension 'perfil'
-            versionCode 14
-            versionName '0.14.0'
+            versionCode 15
+            versionName '0.15.0'
             applicationId 'br.com.zapencomendas.transportadora'
             resValue 'string', 'app_name', 'EncomendasZap Transportadora'
             buildConfigField 'String', 'WEB_URL', '"' + transportadoraUrl + '"'
