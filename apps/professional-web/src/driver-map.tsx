@@ -151,6 +151,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
         const x = ((point.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2;
         const y = point.y - projectedCenter.y;
         return <button type="button" className="driver-call-marker" style={{ left: size.width / 2 + x * tileScale, top: size.height / 2 + y * tileScale }} aria-label={`Ver detalhes de ${DEMO_PLACE.name} em ${DEMO_PLACE.place}`} onClick={() => setPlaceOpen(true)}>
+          <span className="driver-call-place-label">{DEMO_PLACE.place}</span>
           <span className="driver-call-box"><svg viewBox="0 0 64 62" aria-hidden="true"><path d="M32 3 59 16v28L32 58 5 44V16Z" fill="#ff5e00" stroke="white" strokeWidth="3" strokeLinejoin="round"/><path d="m5 16 27 13 27-13M32 29v29" fill="none" stroke="white" strokeWidth="2"/><path d="m18 9.5 27 13" stroke="#ffddb9" strokeWidth="3.5" strokeLinecap="round"/></svg></span>
           <svg className="driver-call-arrow" viewBox="0 0 34 26" aria-hidden="true"><path d="M4 3 17 22 30 3" fill="none" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 3 17 22 30 3" fill="none" stroke="#0b5187" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>;

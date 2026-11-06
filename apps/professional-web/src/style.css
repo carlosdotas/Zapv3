@@ -56,6 +56,7 @@
 .driver-map__controls { top: auto; bottom: 110px; }
 .driver-call-marker { position: absolute; z-index: 2; display: flex; width: 64px; height: 75px; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0; border: 0; background: transparent; transform: translate(-50%,-100%); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .driver-call-marker::after { position: absolute; z-index: -1; bottom: -5px; left: 50%; width: 30px; height: 7px; border-radius: 50%; background: radial-gradient(ellipse, #002b4970 0%, #002b4920 65%, transparent 100%); content: ''; transform: translateX(-50%); animation: driver-call-ground-shadow 1.4s ease-in-out infinite; }
+.driver-call-place-label { position: absolute; bottom: calc(100% + 7px); width: max-content; max-width: min(220px,70vw); overflow: hidden; padding: 5px 9px; border: 1px solid #0b5187; border-radius: 8px; background: #fff; color: #002b49; box-shadow: 0 2px 7px #002b4940; font-size: 12px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .driver-call-box { position: relative; display: block; width: 54px; height: 54px; }
 .driver-call-box::before { position: absolute; inset: 2px; border-radius: 10px; background: #ff5e00; content: ''; animation: driver-call-pulse 1.8s ease-out infinite; }
 .driver-call-box svg { position: relative; width: 100%; height: 100%; filter: drop-shadow(0 3px 5px #002b4970); animation: driver-call-wiggle 2.4s ease-in-out infinite; }
