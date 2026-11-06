@@ -16,6 +16,16 @@ const LOCATION_MESSAGES: Record<LocationStatus, string> = {
   inactive: 'A localização será ativada ao entrar em serviço.', unsupported: 'Este navegador não oferece acesso à localização.',
 };
 
+function ContactRow({ label, name, phone }: { label: string; name: string; phone: string }) {
+  const digits = phone.replace(/\D/g, '');
+  const icon = <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.4 2.7a2 2 0 0 1-.6 1.7L7.6 9.4a16 16 0 0 0 7 7l1.3-1.3a2 2 0 0 1 1.7-.6l2.7.4a2 2 0 0 1 1.7 2Z"/></svg>;
+  return <div className="driver-place-sheet__company">
+    <span className="driver-place-sheet__company-avatar"><DriverIcon name={label === 'Cliente' ? 'pin' : 'package'} size={19}/></span>
+    <span className="driver-place-sheet__company-info"><small>{label}</small><strong>{name}</strong></span>
+    {digits.length >= 12 ? <a className="driver-place-sheet__whatsapp" href={`https://wa.me/${digits}`} target="_blank" rel="noreferrer" aria-label={`Abrir WhatsApp: ${label}`}>{icon}<span>WhatsApp</span></a> : <button type="button" className="driver-place-sheet__whatsapp" disabled aria-label={`WhatsApp de ${label} indisponível: número não informado`}>{icon}<span>WhatsApp</span></button>}
+  </div>;
+}
+
 export function DriverMap({ location, locationStatus, onRequestLocation }: { location: MapPoint | null; locationStatus: LocationStatus; onRequestLocation: () => void }) {
   const container = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; y: number; center: MapPoint } | null>(null);
@@ -206,10 +216,8 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
           <span className="driver-place-sheet__address">{DEMO_PLACE.place}</span>
           <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{DEMO_PLACE.distance}</span><b>{DEMO_PLACE.closingTime}</b></div>
         </div>
-        <div className="driver-place-sheet__company">
-          <span className="driver-place-sheet__company-avatar"><DriverIcon name="package" size={19}/></span>
-          <span className="driver-place-sheet__company-info"><small>Transportadora</small><strong>{DEMO_PLACE.name}</strong></span>
-        </div>
+        <ContactRow label="Transportadora" name={DEMO_PLACE.name} phone="" />
+        <ContactRow label="Cliente" name="Cliente demonstrativo" phone="" />
         <div className="driver-place-sheet__actions">
           <button type="button" className="driver-place-sheet__accept"><DriverIcon name="check" size={21}/>Aceitar</button>
           <button type="button" className="driver-place-sheet__reject"><DriverIcon name="close" size={21}/>Recusar</button>

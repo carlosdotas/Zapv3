@@ -94,3 +94,7 @@
 @keyframes driver-call-wiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
 .driver-map__waiting { top: 62%; display: grid; gap: 10px; width: max-content; max-width: calc(100% - 40px); padding: 14px 16px; border-radius: 16px; font-size: 13px; line-height: 1.4; pointer-events: auto; }
 .driver-map__waiting button { justify-self: center; padding: 9px 14px; border: 0; border-radius: 10px; background: #0b5187; color: #fff; font-size: 12px; font-weight: 800; }
+
+.driver-place-sheet__whatsapp { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; min-height: 46px; padding: 8px 11px; border: 0; border-radius: 12px; background: #168b48; color: #fff; font-size: 12px; font-weight: 800; text-decoration: none; }
+.driver-place-sheet__whatsapp:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 360px) { .driver-place-sheet__whatsapp span { display: none; } .driver-place-sheet__whatsapp { width: 46px; padding: 8px; } }
