@@ -7,6 +7,7 @@ const paths = {
   chevrons: <><path d="m5 6 6 6-6 6M12 6l6 6-6 6"/></>,
   map: <><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6ZM9 3v15M15 6v15"/></>,
   pin: <><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></>,
+  location: <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
   logout: <><path d="M10 17v3H4V4h6v3M14 8l4 4-4 4M8 12h10"/></>,
   close: <path d="M6 6l12 12M18 6 6 18"/>,

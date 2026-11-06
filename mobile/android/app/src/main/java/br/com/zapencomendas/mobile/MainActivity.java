@@ -23,6 +23,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import androidx.core.view.WindowCompat;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
@@ -51,6 +52,7 @@ public class MainActivity extends Activity {
 
     private void configureSystemBars() {
         Window window = getWindow();
+        WindowCompat.setDecorFitsSystemWindows(window, true);
         window.setStatusBarColor(android.graphics.Color.rgb(0, 43, 73));
         window.setNavigationBarColor(android.graphics.Color.rgb(0, 43, 73));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

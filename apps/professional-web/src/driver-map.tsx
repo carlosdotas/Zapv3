@@ -9,6 +9,8 @@ const MAX_ZOOM = 19;
 export function DriverMap({ location }: { location: MapPoint | null }) {
   const container = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; y: number; center: MapPoint } | null>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const followLocation = useRef(true);
   const [center, setCenter] = useState<MapPoint>(validMapPoint(location) ? location : INITIAL_CENTER);
   const [zoom, setZoom] = useState(validMapPoint(location) ? 15 : 5);
@@ -36,17 +38,34 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
   function beginDrag(event: PointerEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest('button,a')) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+      drag.current = null;
+      followLocation.current = false;
+      return;
+    }
     drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, center };
     followLocation.current = false;
   }
 
   function moveDrag(event: PointerEvent<HTMLDivElement>) {
+    if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch.current && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()];
+      const delta = Math.round(Math.log2(Math.hypot(a.x - b.x, a.y - b.y) / pinch.current.distance));
+      setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinch.current.zoom + delta)));
+      return;
+    }
     const active = drag.current;
     if (!active || active.id !== event.pointerId) return;
     setCenter(panMapPoint(active.center, zoom, event.clientX - active.x, event.clientY - active.y));
   }
 
   function endDrag(event: PointerEvent<HTMLDivElement>) {
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
     if (drag.current?.id === event.pointerId) drag.current = null;
   }
 
@@ -83,9 +102,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
       {marker && <span className="driver-map__marker" aria-label="Sua localização no mapa" style={{ left: size.width / 2 + markerX, top: size.height / 2 + markerY }} />}
     </div>
     <div className="driver-map__controls" aria-label="Controles do mapa">
-      <button type="button" onClick={() => changeZoom(1)} aria-label="Aumentar zoom">+</button>
-      <button type="button" onClick={() => changeZoom(-1)} aria-label="Diminuir zoom">−</button>
-      <button type="button" onClick={recenter} disabled={!validMapPoint(location)} aria-label="Centralizar na minha localização" title="Centralizar na minha localização"><DriverIcon name="pin" size={19}/></button>
+      <button type="button" onClick={recenter} disabled={!validMapPoint(location)} aria-label="Centralizar na minha localização" title="Centralizar na minha localização"><DriverIcon name="location" size={22}/></button>
     </div>
     {!validMapPoint(location) && <div className="driver-map__waiting" role="status">Aguardando localização do aparelho</div>}
     {tileError && <div className="driver-map__error" role="status">Não foi possível carregar o mapa. Verifique a conexão. <button type="button" onClick={() => { setTileError(false); setRetry(value => value + 1); }}>Tentar novamente</button></div>}
