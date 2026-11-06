@@ -25,6 +25,7 @@ public class LocationService extends Service implements LocationListener {
     public static volatile float accuracy = 0.0f;
     public static volatile long updatedAt = 0L;
     public static volatile boolean running = false;
+    public static volatile String locationStatus = "inactive";
     private static volatile Location latestLocation;
 
     private DutyConnection connection;
@@ -34,6 +35,7 @@ public class LocationService extends Service implements LocationListener {
     public void onCreate() {
         super.onCreate();
         running = true;
+        locationStatus = "searching";
         createChannel();
         startForeground(NOTIFICATION_ID, buildNotification());
         startLocationUpdates();
@@ -72,26 +74,42 @@ public class LocationService extends Service implements LocationListener {
     private void startLocationUpdates() {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
             && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            locationStatus = "permission_required";
+            running = false;
             stopSelf();
             return;
         }
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (locationManager == null) return;
+        if (locationManager == null) {
+            locationStatus = "unavailable";
+            return;
+        }
         try {
-            if (locationManager.getAllProviders().contains(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000L, 10f, this, Looper.getMainLooper());
+            locationManager.removeUpdates(this);
+            boolean requested = false;
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                // Zero distance is important: with a 10 m threshold, Android may never
+                // deliver another fix while a driver is parked and the UI goes stale.
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000L, 0f, this, Looper.getMainLooper());
+                requested = true;
             }
-            if (locationManager.getAllProviders().contains(LocationManager.NETWORK_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 30000L, 25f, this, Looper.getMainLooper());
+            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 30000L, 0f, this, Looper.getMainLooper());
+                requested = true;
             }
             Location lastKnown = null;
-            for (String provider : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER}) {
+            for (String provider : locationManager.getAllProviders()) {
                 Location candidate = locationManager.getLastKnownLocation(provider);
                 if (candidate != null && (lastKnown == null || candidate.getTime() > lastKnown.getTime())) lastKnown = candidate;
             }
             if (lastKnown != null && System.currentTimeMillis() - lastKnown.getTime() < 120000L) onLocationChanged(lastKnown);
+            else locationStatus = requested ? "searching" : "gps_disabled";
         } catch (SecurityException ignored) {
+            locationStatus = "permission_required";
+            running = false;
             stopSelf();
+        } catch (IllegalArgumentException ignored) {
+            locationStatus = "unavailable";
         }
     }
 
@@ -109,6 +127,8 @@ public class LocationService extends Service implements LocationListener {
         }
         String token = intent == null ? null : intent.getStringExtra("token");
         if (token == null) { stopSelf(); return START_NOT_STICKY; }
+        startLocationUpdates();
+        if (!running) return START_NOT_STICKY;
         if (connection != null) connection.close();
         connection = new DutyConnection(this, token);
         Location recent = latestLocation;
@@ -122,6 +142,7 @@ public class LocationService extends Service implements LocationListener {
         longitude = location.getLongitude();
         accuracy = location.hasAccuracy() ? location.getAccuracy() : 0.0f;
         updatedAt = location.getTime();
+        locationStatus = "active";
         latestLocation = new Location(location);
         if (connection != null) connection.location(location);
     }
@@ -135,9 +156,15 @@ public class LocationService extends Service implements LocationListener {
     }
 
     @Override
-    public void onProviderEnabled(String provider) {}
+    public void onProviderEnabled(String provider) { locationStatus = "searching"; }
     @Override
-    public void onProviderDisabled(String provider) {}
+    public void onProviderDisabled(String provider) {
+        if (locationManager == null) return;
+        try {
+            locationStatus = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ? "searching" : "gps_disabled";
+        } catch (SecurityException ignored) { locationStatus = "permission_required"; }
+    }
     @Override
     public void onStatusChanged(String provider, int status, android.os.Bundle extras) {}
 
@@ -147,6 +174,7 @@ public class LocationService extends Service implements LocationListener {
         if (locationManager != null) locationManager.removeUpdates(this);
         clearLastLocation();
         running = false;
+        locationStatus = "inactive";
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();
     }

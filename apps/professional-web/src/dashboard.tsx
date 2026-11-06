@@ -7,7 +7,8 @@ import { usePickupSound } from './pickup-sound';
 import { isPickupForProfessional } from './pickup-target';
 
 type Coordinates = { latitude: number; longitude: number; updatedAt: number } | null;
-type Native = { startDuty:(token:string)=>void; stopLocation:()=>void; isLocationRunning:()=>boolean; canShowUrgentCalls?:()=>boolean; openUrgentCallSettings?:()=>void; getLatitude?:()=>number; getLongitude?:()=>number; getLocationUpdatedAt?:()=>number };
+type LocationStatus = 'searching'|'active'|'permission'|'gps_disabled'|'stale'|'unavailable'|'inactive'|'unsupported';
+type Native = { startDuty:(token:string)=>void; stopLocation:()=>void; isLocationRunning:()=>boolean; canShowUrgentCalls?:()=>boolean; openUrgentCallSettings?:()=>void; getLatitude?:()=>number; getLongitude?:()=>number; getLocationUpdatedAt?:()=>number; getLocationStatus?:()=>string; requestLocation?:(token:string)=>void };
 
 export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUrl:string; token:string; userId:string; userName:string; onLogout:()=>void }) {
   const native = (window as unknown as {AndroidApp?:Native}).AndroidApp;
@@ -15,6 +16,8 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
   const [connected, setConnected] = useState(false);
   const [duty, setDuty] = useState(()=>native?.isLocationRunning() ?? false);
   const [location, setLocation] = useState<Coordinates>(null);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('searching');
+  const [locationRetry, setLocationRetry] = useState(0);
   const [calls, setCalls] = useState<PickupCall[]>([]);
   const [message, setMessage] = useState('');
   const [now, setNow] = useState(Date.now());
@@ -35,7 +38,7 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
   useEffect(()=>{
     if(!native)return;
     let wasRunning=false;
-    const update=()=>{try{const running=native.isLocationRunning();setDuty(running);if(running && !wasRunning)setMessage('');wasRunning=running;const timestamp=native.getLocationUpdatedAt?.() ?? 0;const latitude=native.getLatitude?.();const longitude=native.getLongitude?.();if(running && timestamp>0 && Date.now()-timestamp<120000 && typeof latitude==='number' && typeof longitude==='number' && Number.isFinite(latitude) && Number.isFinite(longitude))setLocation({latitude,longitude,updatedAt:timestamp});else setLocation(null);}catch{setLocation(null);}};
+    const update=()=>{try{const running=native.isLocationRunning();setDuty(running);if(running && !wasRunning)setMessage('');wasRunning=running;const timestamp=native.getLocationUpdatedAt?.() ?? 0;const latitude=native.getLatitude?.();const longitude=native.getLongitude?.();const fresh=timestamp>0 && Date.now()-timestamp<120000 && typeof latitude==='number' && typeof longitude==='number' && Number.isFinite(latitude) && Number.isFinite(longitude);if(running && fresh){setLocation({latitude:latitude!,longitude:longitude!,updatedAt:timestamp});setLocationStatus('active');}else{setLocation(null);const status=native.getLocationStatus?.();setLocationStatus(!running?'inactive':fresh? 'active':status==='permission_required'?'permission':status==='gps_disabled'?'gps_disabled':status==='unavailable'?'unavailable':timestamp>0?'stale':'searching');}}catch{setLocation(null);setLocationStatus('unavailable');}};
     update();const timer=window.setInterval(update,1500);return()=>window.clearInterval(timer);
   },[native]);
 
@@ -47,16 +50,19 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
   },[native]);
 
   useEffect(()=>{
-    if(!duty || native){if(!duty)setLocation(null);return;}
+    if(!duty || native){if(!duty){setLocation(null);setLocationStatus('inactive');}return;}
     let watch:number|undefined;let lastSent=0;
     const beat=window.setInterval(()=>{if(socket?.connected)socket.emit('presence:heartbeat',{},()=>{});},30000);
-    if(navigator.geolocation)watch=navigator.geolocation.watchPosition(position=>{
+    if(!navigator.geolocation){setLocationStatus('unsupported');return ()=>window.clearInterval(beat);}
+    watch=navigator.geolocation.watchPosition(position=>{
       setLocation({latitude:position.coords.latitude,longitude:position.coords.longitude,updatedAt:position.timestamp});
+      setLocationStatus('active');
+      setMessage('');
       if(!socket?.connected || Date.now()-lastSent<10000)return;
       lastSent=Date.now();socket.emit('location:update',{latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,recordedAt:new Date(position.timestamp).toISOString()},()=>{});
-    },()=>{setLocation(null);setMessage('Confira a permissão e o sinal de localização.');},{enableHighAccuracy:true,maximumAge:10000});
+    },error=>{setLocation(null);setLocationStatus(error.code===1?'permission':error.code===2?'unavailable':'searching');setMessage(error.code===1?'Permita a localização no navegador para mostrar sua posição.':'Não foi possível obter a localização. Verifique o GPS e tente novamente.');},{enableHighAccuracy:true,maximumAge:0,timeout:20000});
     return()=>{window.clearInterval(beat);if(watch!==undefined)navigator.geolocation.clearWatch(watch);};
-  },[duty,native,socket]);
+  },[duty,native,socket,locationRetry]);
 
   function changeDuty(on:boolean) {
     if(on)enableSound();
@@ -65,6 +71,7 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
     if(!socket?.connected){setMessage('Sem conexão. Aguarde a reconexão para alterar seu serviço.');return;}
     socket.emit('duty:set',{onDuty:on},(result:{error?:string})=>{if(result.error)setMessage(result.error);else{setDuty(on);setMessage('');}});
   }
+  function retryLocation(){setLocation(null);setMessage('Buscando a localização do aparelho…');setLocationStatus('searching');if(native)native.requestLocation?.(token);else setLocationRetry(value=>value+1);}
   function answer(id:string, choice:'accepted'|'rejected'):Promise<string|undefined> {
     if(!socket?.connected)return Promise.resolve('Sem conexão. Aguarde e tente novamente.');
     return new Promise(resolve=>socket.timeout(10000).emit('pickup:respond',{id,answer:choice},(failure:Error|null,result?:{data?:PickupCall;error?:string})=>{
@@ -79,7 +86,7 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
     {message && <p className="driver-status-message" role="status">{message}</p>}
     {!native && duty && <p className="driver-browser-note">No navegador, localização e avisos em segundo plano dependem do sistema. Use o aplicativo Android durante o serviço.</p>}
   </>;
-  return <div className="driver-app">{duty ? <DriverOnline name={userName} connected={connected} location={location && now-location.updatedAt<120000 ? location : null} onStop={()=>changeDuty(false)} onLogout={logout}>{notice}</DriverOnline> : <DriverOffline name={userName} disabled={!native && !connected} onStart={()=>changeDuty(true)} onLogout={logout}>{notice}</DriverOffline>}
+  return <div className="driver-app">{duty ? <DriverOnline name={userName} connected={connected} location={location && now-location.updatedAt<120000 ? location : null} locationStatus={locationStatus} onRequestLocation={retryLocation} onStop={()=>changeDuty(false)} onLogout={logout}>{notice}</DriverOnline> : <DriverOffline name={userName} disabled={!native && !connected} onStart={()=>changeDuty(true)} onLogout={logout}>{notice}</DriverOffline>}
     {pending.length>0 && <div className="incoming-layer">{pending.map(call=><DriverCall key={call.id} call={call} now={now} onAnswer={answer}/>)}</div>}
   </div>;
 }

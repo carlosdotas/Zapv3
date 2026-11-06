@@ -8,7 +8,15 @@ const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
 const DEMO_PLACE = { name: 'Capital Encomendas', place: 'Centro, Leopoldo de Bulhões - GO', distance: '5 km', price: 'R$ 25,99', latitude: -16.62, longitude: -48.74 };
 
-export function DriverMap({ location }: { location: MapPoint | null }) {
+type LocationStatus = 'searching'|'active'|'permission'|'gps_disabled'|'stale'|'unavailable'|'inactive'|'unsupported';
+const LOCATION_MESSAGES: Record<LocationStatus, string> = {
+  searching: 'Buscando sinal do GPS. Aguarde alguns instantes.', active: 'Atualizando sua localização.',
+  permission: 'Permita a localização precisa do aplicativo.', gps_disabled: 'Ative o GPS do aparelho para mostrar sua posição.',
+  stale: 'A posição ficou desatualizada. Tente localizar novamente.', unavailable: 'Não foi possível obter a localização. Verifique o sinal do GPS.',
+  inactive: 'A localização será ativada ao entrar em serviço.', unsupported: 'Este navegador não oferece acesso à localização.',
+};
+
+export function DriverMap({ location, locationStatus, onRequestLocation }: { location: MapPoint | null; locationStatus: LocationStatus; onRequestLocation: () => void }) {
   const container = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; y: number; center: MapPoint } | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -172,7 +180,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
         </div>
       </section>
     </div>, document.body)}
-    {!validMapPoint(location) && <div className="driver-map__waiting" role="status">Aguardando localização do aparelho</div>}
+    {!validMapPoint(location) && <div className="driver-map__waiting" role="status"><span>{LOCATION_MESSAGES[locationStatus]}</span><button type="button" onClick={onRequestLocation}>Tentar novamente</button></div>}
     {tileError && <div className="driver-map__error" role="status">Não foi possível carregar o mapa. Verifique a conexão. <button type="button" onClick={() => { setTileError(false); setRetry(value => value + 1); }}>Tentar novamente</button></div>}
     <a className="driver-map__credit" href="https://www.openstreetmap.org/copyright" rel="noreferrer">© colaboradores do OpenStreetMap</a>
   </div>;

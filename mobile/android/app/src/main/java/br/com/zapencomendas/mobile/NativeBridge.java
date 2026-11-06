@@ -25,7 +25,7 @@ public final class NativeBridge {
     public void openUrgentCallSettings() { activity.runOnUiThread(activity::openUrgentCallSettings); }
 
     @JavascriptInterface
-    public void requestLocation() { activity.runOnUiThread(() -> activity.requestLocationFromWeb()); }
+    public void requestLocation(String token) { activity.runOnUiThread(() -> activity.requestLocationFromWeb(token)); }
 
     @JavascriptInterface
     public void stopLocation() { activity.runOnUiThread(() -> activity.stopLocationFromWeb()); }
@@ -44,6 +44,9 @@ public final class NativeBridge {
 
     @JavascriptInterface
     public long getLocationUpdatedAt() { return LocationService.updatedAt; }
+
+    @JavascriptInterface
+    public String getLocationStatus() { return LocationService.locationStatus; }
 
     @JavascriptInterface
     public void showNotification(String title, String message) { activity.showLocalNotification(title, message); }

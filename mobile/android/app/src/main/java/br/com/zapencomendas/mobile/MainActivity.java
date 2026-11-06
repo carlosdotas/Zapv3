@@ -153,9 +153,9 @@ public class MainActivity extends Activity {
         }
     }
 
-    public void requestLocationFromWeb() {
-        if (dutyToken == null) { showToast("Use Entrar em serviço para ativar a localização."); return; }
-        startDuty(dutyToken);
+    public void requestLocationFromWeb(String token) {
+        if (token == null || token.length() > 2048) { showToast("Entre em serviço novamente para ativar a localização."); return; }
+        startDuty(token);
     }
 
     public void stopLocationFromWeb() {
