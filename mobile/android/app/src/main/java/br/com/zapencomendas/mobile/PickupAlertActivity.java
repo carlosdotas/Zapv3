@@ -120,11 +120,13 @@ public final class PickupAlertActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (!readCall(intent)) { finish(); return; }
+        setIntent(intent);
         showDetails(intent); showMap(intent); responseAttempt++; awaiting = false; accept.setEnabled(true); reject.setEnabled(true); message.setText("");
     }
 
     private void showMap(Intent intent) {
         Uri.Builder params = new Uri.Builder();
+        params.appendQueryParameter("pickupName", value(intent, "pickupName", "Local de coleta"));
         double lat = intent.getDoubleExtra("pickupLatitude", Double.NaN);
         double lon = intent.getDoubleExtra("pickupLongitude", Double.NaN);
         if (Double.isFinite(lat) && Math.abs(lat) <= 85 && Double.isFinite(lon) && Math.abs(lon) <= 180) {
