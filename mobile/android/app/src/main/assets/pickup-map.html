@@ -5,18 +5,22 @@ const params=new URLSearchParams(location.search), number=key=>params.has(key)?N
 const origin=[number('olat'),number('olon')], destination=[number('dlat'),number('dlon')];
 const valid=p=>Number.isFinite(p[0])&&Number.isFinite(p[1])&&Math.abs(p[0])<=85&&Math.abs(p[1])<=180;
 const map=document.getElementById('map'), notice=document.getElementById('notice');
+let lastPoints=[],lastDistance=0;
 function project(p,z){const n=256*2**z, sin=Math.sin(p[0]*Math.PI/180);return [(p[1]+180)/360*n,(.5-Math.log((1+sin)/(1-sin))/(4*Math.PI))*n]}
 function render(points,distance){
-  const w=map.clientWidth,h=map.clientHeight;let z=15;
-  for(;z>3;z--){const a=project(origin,z),b=project(destination,z);if(Math.abs(a[0]-b[0])<w*.65&&Math.abs(a[1]-b[1])<h*.65)break}
-  const a=project(origin,z),b=project(destination,z),cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2,n=2**z;
+  lastPoints=points;lastDistance=distance;
+  const w=map.clientWidth,h=map.clientHeight,both=valid(origin)&&valid(destination),anchor=valid(origin)?origin:valid(destination)?destination:[-14.235,-51.9253];let z=both?15:(valid(origin)||valid(destination))?14:4;
+  if(!w||!h)return;
+  if(both)for(;z>3;z--){const a=project(origin,z),b=project(destination,z);if(Math.abs(a[0]-b[0])<w*.65&&Math.abs(a[1]-b[1])<h*.65)break}
+  const a=project(both?origin:anchor,z),b=project(both?destination:anchor,z),cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2,n=2**z;
   map.querySelectorAll('.tile,.route,.point,.label').forEach(e=>e.remove());
   for(let y=Math.max(0,Math.floor((cy-h/2)/256));y<=Math.min(n-1,Math.floor((cy+h/2)/256));y++)for(let x=Math.floor((cx-w/2)/256);x<=Math.floor((cx+w/2)/256);x++){const img=document.createElement('img');img.className='tile';img.width=256;img.height=256;img.alt='';img.style.left=(x*256-cx+w/2)+'px';img.style.top=(y*256-cy+h/2)+'px';img.src=`https://tile.openstreetmap.org/${z}/${((x%n)+n)%n}/${y}.png`;map.insertBefore(img,notice)}
   const xy=p=>{const q=project(p,z);return [q[0]-cx+w/2,q[1]-cy+h/2]};
   if(points.length){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('route');svg.setAttribute('width',w);svg.setAttribute('height',h);const coords=points.map(xy),line=coords.map(p=>p.join(',')).join(' ');for(const [stroke,width] of [['white',9],['#1675d1',5]]){const poly=document.createElementNS(svg.namespaceURI,'polyline');poly.setAttribute('points',line);poly.setAttribute('fill','none');poly.setAttribute('stroke',stroke);poly.setAttribute('stroke-width',width);poly.setAttribute('stroke-linecap','round');poly.setAttribute('stroke-linejoin','round');svg.appendChild(poly)}map.insertBefore(svg,notice);const mid=coords[Math.floor(coords.length/2)],label=document.createElement('span');label.className='label';label.style.left=mid[0]+'px';label.style.top=mid[1]+'px';label.textContent=distance<1000?`${Math.round(distance)} m`:`${(distance/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})} km`;map.insertBefore(label,notice)}
-  for(const [p,kind] of [[origin,'driver'],[destination,'pickup']]){const q=xy(p),el=document.createElement('span');el.className='point '+kind;el.style.left=q[0]+'px';el.style.top=q[1]+'px';map.insertBefore(el,notice)}
+  for(const [p,kind] of [[origin,'driver'],[destination,'pickup']]){if(!valid(p))continue;const q=xy(p),el=document.createElement('span');el.className='point '+kind;el.style.left=q[0]+'px';el.style.top=q[1]+'px';map.insertBefore(el,notice)}
 }
-if(!valid(origin)||!valid(destination)){notice.textContent='Localização da coleta ou do motorista indisponível.'}else{
+window.addEventListener('resize',()=>render(lastPoints,lastDistance));
+if(!valid(origin)||!valid(destination)){render([],0);notice.textContent=!valid(destination)?'A transportadora não informou a localização da coleta.':'Aguardando a localização do motorista.'}else{
   render([],0);
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
   fetch(`https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${destination[1]},${destination[0]}?overview=full&geometries=geojson`,{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json()}).then(data=>{const r=data.routes?.[0],coords=r?.geometry?.coordinates;if(data.code!=='Ok'||!Number.isFinite(r?.distance)||!Array.isArray(coords)||coords.length<2)throw Error();const points=coords.map(p=>[p[1],p[0]]);if(!points.every(valid))throw Error();render(points,r.distance);notice.style.display='none'}).catch(()=>{notice.textContent='Não foi possível carregar a rota.'}).finally(()=>clearTimeout(timeout));

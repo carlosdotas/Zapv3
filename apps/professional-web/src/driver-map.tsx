@@ -263,6 +263,7 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
         </div>
         <ContactRow label="Transportadora" name={DEMO_PLACE.name} phone="" />
         <ContactRow label="Cliente" name="Cliente demonstrativo" phone="" />
+        <div className="driver-place-sheet__observations"><strong>OBSERVAÇÕES</strong><span>SEM OBSERVAÇÕES INFORMADAS</span></div>
         <div className="driver-place-sheet__actions">
           <button type="button" className="driver-place-sheet__accept"><DriverIcon name="check" size={21}/>Aceitar</button>
           <button type="button" className="driver-place-sheet__reject"><DriverIcon name="close" size={21}/>Recusar</button>

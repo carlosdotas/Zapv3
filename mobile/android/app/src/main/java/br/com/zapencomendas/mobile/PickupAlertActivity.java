@@ -20,6 +20,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
+import android.widget.Space;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -36,6 +38,7 @@ public final class PickupAlertActivity extends Activity {
     private Button accept;
     private Button reject;
     private boolean awaiting;
+    private boolean mapHadOrigin;
     private int responseAttempt;
     private final BroadcastReceiver statusReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -50,6 +53,7 @@ public final class PickupAlertActivity extends Activity {
             long seconds = (expires - System.currentTimeMillis() + 999) / 1000;
             if (seconds <= 0) { finish(); return; }
             countdown.setText("Responda em até " + seconds + " segundos.");
+            if (!mapHadOrigin && LocationService.running && LocationService.updatedAt > 0 && System.currentTimeMillis() - LocationService.updatedAt < 120000L) showMap(getIntent());
             handler.postDelayed(this, 1000);
         }
     };
@@ -59,19 +63,7 @@ public final class PickupAlertActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(true); setTurnScreenOn(true); }
         else getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         if (!readCall(getIntent())) { finish(); return; }
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER_HORIZONTAL);
-        int padding = (int) (24 * getResources().getDisplayMetrics().density);
-        layout.setPadding(padding, padding, padding, padding);
-        layout.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{Color.rgb(9,13,22),Color.rgb(15,23,42),Color.rgb(7,10,18)}));
-        TextView eyebrow = new TextView(this);
-        eyebrow.setText("ENCOMENDASZAP  •  MOTORISTA"); eyebrow.setTextColor(Color.rgb(253,186,116)); eyebrow.setTextSize(11); eyebrow.setTypeface(null,Typeface.BOLD); eyebrow.setGravity(Gravity.CENTER);
-        TextView title = new TextView(this);
-        title.setText("Nova coleta para você"); title.setTextColor(Color.WHITE); title.setTextSize(26); title.setTypeface(null,Typeface.BOLD); title.setGravity(Gravity.CENTER); title.setPadding(0,padding/2,0,padding/3);
-        countdown = new TextView(this); countdown.setTextColor(Color.rgb(203,213,225)); countdown.setTextSize(14); countdown.setGravity(Gravity.CENTER); countdown.setPadding(0,0,0,padding/2);
-        details = new TextView(this); details.setTextColor(Color.rgb(30,41,59)); details.setTextSize(16); details.setGravity(Gravity.START); details.setPadding(padding,padding,padding,padding); showDetails(getIntent());
-        ScrollView detailsScroll = new ScrollView(this); detailsScroll.setBackground(rounded(Color.WHITE,20)); detailsScroll.addView(details);
+        FrameLayout root = new FrameLayout(this);
         map = new WebView(this);
         map.getSettings().setJavaScriptEnabled(true);
         map.getSettings().setAllowFileAccess(false);
@@ -79,19 +71,41 @@ public final class PickupAlertActivity extends Activity {
         map.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return true; }
         });
+        root.addView(map, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         showMap(getIntent());
-        message = new TextView(this); message.setTextColor(Color.WHITE); message.setGravity(Gravity.CENTER);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setGravity(Gravity.CENTER_HORIZONTAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+        LinearLayout header = new LinearLayout(this); header.setOrientation(LinearLayout.VERTICAL);
+        header.setGravity(Gravity.CENTER); header.setPadding(padding,padding/2,padding,padding/2);
+        header.setBackground(rounded(Color.rgb(0,43,73),16));
+        TextView eyebrow = new TextView(this);
+        eyebrow.setText("ENCOMENDASZAP  •  MOTORISTA"); eyebrow.setTextColor(Color.rgb(253,186,116)); eyebrow.setTextSize(11); eyebrow.setTypeface(null,Typeface.BOLD); eyebrow.setGravity(Gravity.CENTER);
+        TextView title = new TextView(this);
+        title.setText("Nova coleta para você"); title.setTextColor(Color.WHITE); title.setTextSize(20); title.setTypeface(null,Typeface.BOLD); title.setGravity(Gravity.CENTER); title.setPadding(0,padding/3,0,padding/3);
+        countdown = new TextView(this); countdown.setTextColor(Color.rgb(203,213,225)); countdown.setTextSize(14); countdown.setGravity(Gravity.CENTER); countdown.setPadding(0,0,0,padding/2);
+        details = new TextView(this); details.setTextColor(Color.rgb(30,41,59)); details.setTextSize(14); details.setGravity(Gravity.START); details.setPadding(padding,padding/2,padding,padding/2); showDetails(getIntent());
+        ScrollView detailsScroll = new ScrollView(this); detailsScroll.addView(details);
+        TextView observations = new TextView(this); observations.setText("OBSERVAÇÕES\nSEM OBSERVAÇÕES INFORMADAS"); observations.setTextColor(Color.WHITE); observations.setTextSize(13); observations.setTypeface(null,Typeface.BOLD); observations.setPadding(padding,padding/2,padding,padding/2); observations.setBackground(rounded(Color.rgb(201,31,50),14));
+        message = new TextView(this); message.setTextColor(Color.rgb(190,18,60)); message.setGravity(Gravity.CENTER);
         accept = new Button(this); accept.setText("Aceitar chamada"); accept.setAllCaps(false); accept.setTypeface(null,Typeface.BOLD); accept.setTextColor(Color.WHITE); accept.setBackground(rounded(Color.rgb(5,150,105),14));
         reject = new Button(this); reject.setText("Recusar"); reject.setAllCaps(false); reject.setTypeface(null,Typeface.BOLD); reject.setTextColor(Color.rgb(190,18,60)); reject.setBackground(rounded(Color.rgb(255,241,242),14));
         accept.setOnClickListener(view -> respond("accepted")); reject.setOnClickListener(view -> respond("rejected"));
         LinearLayout actions = new LinearLayout(this); actions.setOrientation(LinearLayout.HORIZONTAL); actions.setPadding(0,padding/2,0,0);
         LinearLayout.LayoutParams rejectSize = new LinearLayout.LayoutParams(0,(int)(52*getResources().getDisplayMetrics().density),1); rejectSize.setMargins(0,0,padding/3,0);
         actions.addView(reject,rejectSize); actions.addView(accept,new LinearLayout.LayoutParams(0,(int)(52*getResources().getDisplayMetrics().density),1.4f));
-        layout.addView(eyebrow); layout.addView(title); layout.addView(countdown);
-        layout.addView(map, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
-        layout.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (int)(140 * getResources().getDisplayMetrics().density)));
-        layout.addView(message); layout.addView(actions);
-        setContentView(layout);
+        header.addView(eyebrow); header.addView(title); header.addView(countdown);
+        layout.addView(header, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(new Space(this), new LinearLayout.LayoutParams(1,0,1));
+        LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(padding,padding/2,padding,padding); card.setBackground(rounded(Color.WHITE,20));
+        card.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (int)(112 * getResources().getDisplayMetrics().density)));
+        card.addView(observations, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        card.addView(message); card.addView(actions);
+        layout.addView(card, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        root.addView(layout, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
         IntentFilter filter = new IntentFilter(STATUS_ACTION);
         androidx.core.content.ContextCompat.registerReceiver(this, statusReceiver, filter,
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
@@ -116,7 +130,8 @@ public final class PickupAlertActivity extends Activity {
         if (Double.isFinite(lat) && Math.abs(lat) <= 85 && Double.isFinite(lon) && Math.abs(lon) <= 180) {
             params.appendQueryParameter("dlat", Double.toString(lat)).appendQueryParameter("dlon", Double.toString(lon));
         }
-        if (LocationService.running && LocationService.updatedAt > 0 && System.currentTimeMillis() - LocationService.updatedAt < 120000L) {
+        mapHadOrigin = LocationService.running && LocationService.updatedAt > 0 && System.currentTimeMillis() - LocationService.updatedAt < 120000L;
+        if (mapHadOrigin) {
             params.appendQueryParameter("olat", Double.toString(LocationService.latitude)).appendQueryParameter("olon", Double.toString(LocationService.longitude));
         }
         try (java.util.Scanner scanner = new java.util.Scanner(getAssets().open("pickup-map.html"), "UTF-8").useDelimiter("\\A")) {
