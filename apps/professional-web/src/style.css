@@ -49,6 +49,12 @@
 @media (max-height: 670px) { .driver-offline__main { padding-block: 12px; }.driver-welcome { padding: 16px; }.driver-welcome__icon { width: 60px; height: 60px; margin-bottom: 12px; }.driver-welcome > p { margin-bottom: 10px; }.driver-features { padding-top: 8px; }.incoming-call__body { gap: 8px; padding: 14px 20px; } }
 .driver-map__controls button { border-radius: 50%; background: #fff; color: #1a73e8; box-shadow: 0 2px 7px #0f172a30; }
 .driver-map__scale { position: absolute; inset: 0; transform-origin: center; }
+.driver-map__route { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.driver-map__route polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.driver-map__route-outline { stroke: #fff; stroke-width: 9; }
+.driver-map__route-line { stroke: #1675d1; stroke-width: 5; }
+.driver-map__route-distance { position: absolute; z-index: 2; padding: 6px 10px; border: 2px solid #fff; border-radius: 999px; background: #0b5187; color: #fff; box-shadow: 0 2px 8px #002b4950; font-size: 13px; font-weight: 900; white-space: nowrap; transform: translate(-50%,-50%); pointer-events: none; }
+.driver-map__route-error { position: absolute; z-index: 2; left: 50%; bottom: 165px; max-width: calc(100% - 32px); padding: 9px 12px; border-radius: 10px; background: #fff; color: #9f1239; font-size: 12px; text-align: center; transform: translateX(-50%); pointer-events: none; }
 .driver-you-marker { position: absolute; z-index: 4; display: flex; flex-direction: column; align-items: center; transform: translate(-50%,-50%); pointer-events: none; }
 .driver-you-marker__place { max-width: min(210px,65vw); margin-bottom: 5px; overflow: hidden; padding: 4px 8px; border-radius: 7px; background: #0b5187; color: #fff; box-shadow: 0 2px 6px #002b4950; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .driver-you-marker__dot { width: 22px; height: 22px; border: 4px solid #fff; border-radius: 50%; background: #1a73e8; box-shadow: 0 2px 8px #0f172a80; }

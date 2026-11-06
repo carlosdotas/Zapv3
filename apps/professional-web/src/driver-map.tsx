@@ -6,7 +6,8 @@ import { openStreetMapProvider, panMapPoint, projectMapPoint, validMapPoint, vis
 const INITIAL_CENTER: MapPoint = { latitude: -16.62, longitude: -48.74 };
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
-const DEMO_PLACE = { name: 'Capital Encomendas', place: 'Centro, Leopoldo de Bulhões - GO', distance: '5 km', closingTime: 'Fecha às 18h', latitude: -16.62, longitude: -48.74 };
+const DEMO_PLACE = { name: 'Capital Encomendas', place: 'Centro, Leopoldo de Bulhões - GO', closingTime: 'Fecha às 18h', latitude: -16.62, longitude: -48.74 };
+type Route = { points: MapPoint[]; distance: number };
 
 type LocationStatus = 'searching'|'active'|'permission'|'gps_disabled'|'stale'|'unavailable'|'inactive'|'unsupported';
 const LOCATION_MESSAGES: Record<LocationStatus, string> = {
@@ -40,6 +41,8 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
   const [tileError, setTileError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [placeOpen, setPlaceOpen] = useState(false);
+  const [route, setRoute] = useState<Route | null>(null);
+  const [routeError, setRouteError] = useState(false);
   const [currentPlace, setCurrentPlace] = useState('Localizando…');
   const geocodeRef = useRef<{ key: string; controller?: AbortController; timer?: number }>({ key: '' });
   const locationKey = validMapPoint(location) ? `${location.latitude.toFixed(3)},${location.longitude.toFixed(3)}` : '';
@@ -86,6 +89,27 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
     }, 1100);
     geocodeRef.current = { key, controller, timer };
     return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [locationKey]);
+
+  useEffect(() => {
+    if (!locationKey || !validMapPoint(location)) { setRoute(null); setRouteError(false); return; }
+    const controller = new AbortController();
+    let active = true;
+    const timeout = window.setTimeout(() => { controller.abort(); if (active) setRouteError(true); }, 12000);
+    const { latitude, longitude } = location;
+    setRoute(null); setRouteError(false);
+    const url = `https://router.project-osrm.org/route/v1/driving/${longitude},${latitude};${DEMO_PLACE.longitude},${DEMO_PLACE.latitude}?overview=full&geometries=geojson`;
+    fetch(url, { signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error('route unavailable'); return response.json(); })
+      .then((data: { code?: string; routes?: Array<{ distance: number; geometry?: { coordinates?: number[][] } }> }) => {
+        const result = data.routes?.[0];
+        const points = result?.geometry?.coordinates?.map(([longitude, latitude]) => ({ latitude, longitude }));
+        if (data.code !== 'Ok' || !result || !Number.isFinite(result.distance) || result.distance < 0 || !points || points.length < 2 || !points.every(validMapPoint)) throw new Error('invalid route');
+        if (active) setRoute({ points, distance: result.distance });
+      })
+      .catch(() => { if (active && !controller.signal.aborted) setRouteError(true); })
+      .finally(() => window.clearTimeout(timeout));
+    return () => { active = false; window.clearTimeout(timeout); controller.abort(); };
   }, [locationKey]);
 
   useEffect(() => {
@@ -175,6 +199,25 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
   const markerX = marker ? ((marker.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2 : 0;
   const markerY = marker ? marker.y - projectedCenter.y : 0;
 
+  const routePoints = route?.points.map(point => {
+    const projected = projectMapPoint(point, tileZoom);
+    const x = ((projected.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2;
+    return { x: size.width / 2 + x * tileScale, y: size.height / 2 + (projected.y - projectedCenter.y) * tileScale };
+  }) ?? [];
+  const lengths = routePoints.slice(1).map((point, index) => Math.hypot(point.x - routePoints[index].x, point.y - routePoints[index].y));
+  const halfway = lengths.reduce((sum, length) => sum + length, 0) / 2;
+  let walked = 0;
+  let routeLabel = routePoints[0];
+  for (let i = 0; i < lengths.length; i++) {
+    if (walked + lengths[i] >= halfway && lengths[i] > 0) {
+      const fraction = (halfway - walked) / lengths[i];
+      routeLabel = { x: routePoints[i].x + (routePoints[i + 1].x - routePoints[i].x) * fraction, y: routePoints[i].y + (routePoints[i + 1].y - routePoints[i].y) * fraction };
+      break;
+    }
+    walked += lengths[i];
+  }
+  const distanceText = route ? route.distance < 1000 ? `${Math.round(route.distance)} m` : `${(route.distance / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km` : '';
+
   return <div ref={container} className="driver-map" role="region" aria-label="Mapa da região">
     <div className="driver-map__tiles" onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
       <div className="driver-map__scale" style={{ transform: `scale(${tileScale})` }}>
@@ -189,6 +232,8 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
         onError={() => setTileError(true)}
       />)}
       </div>
+      {routePoints.length > 1 && <svg className="driver-map__route" width={size.width} height={size.height} aria-label={`Rota de ${distanceText}`} role="img"><polyline points={routePoints.map(point => `${point.x},${point.y}`).join(' ')} className="driver-map__route-outline"/><polyline points={routePoints.map(point => `${point.x},${point.y}`).join(' ')} className="driver-map__route-line"/></svg>}
+      {route && routeLabel && <div className="driver-map__route-distance" style={{ left: routeLabel.x, top: routeLabel.y }}>{distanceText}</div>}
       {marker && <div className="driver-you-marker" style={{ left: size.width / 2 + markerX * tileScale, top: size.height / 2 + markerY * tileScale }} aria-label={`Você: ${currentPlace}`}>
         <span className="driver-you-marker__place">{currentPlace}</span><span className="driver-you-marker__dot"/><span className="driver-you-marker__caption">Você</span>
       </div>}
@@ -214,7 +259,7 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
         <div className="driver-place-sheet__content">
           <strong className="driver-place-sheet__title">{DEMO_PLACE.name}</strong>
           <span className="driver-place-sheet__address">{DEMO_PLACE.place}</span>
-          <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{DEMO_PLACE.distance}</span><b>{DEMO_PLACE.closingTime}</b></div>
+          <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{route ? distanceText : routeError ? 'Rota indisponível' : 'Calculando rota…'}</span><b>{DEMO_PLACE.closingTime}</b></div>
         </div>
         <ContactRow label="Transportadora" name={DEMO_PLACE.name} phone="" />
         <ContactRow label="Cliente" name="Cliente demonstrativo" phone="" />
@@ -225,6 +270,7 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
       </section>
     </div>, document.body)}
     {!validMapPoint(location) && <div className="driver-map__waiting" role="status"><span>{LOCATION_MESSAGES[locationStatus]}</span><button type="button" onClick={onRequestLocation}>Tentar novamente</button></div>}
+    {routeError && <div className="driver-map__route-error" role="status">Não foi possível calcular a rota. Verifique a conexão.</div>}
     {tileError && <div className="driver-map__error" role="status">Não foi possível carregar o mapa. Verifique a conexão. <button type="button" onClick={() => { setTileError(false); setRetry(value => value + 1); }}>Tentar novamente</button></div>}
     <a className="driver-map__credit" href="https://www.openstreetmap.org/copyright" rel="noreferrer">© colaboradores do OpenStreetMap</a>
   </div>;
