@@ -205,10 +205,10 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
           <strong className="driver-place-sheet__title">{DEMO_PLACE.name}</strong>
           <span className="driver-place-sheet__address">{DEMO_PLACE.place}</span>
           <div className="driver-place-sheet__meta"><span><DriverIcon name="location" size={17}/>{DEMO_PLACE.distance}</span><b>{DEMO_PLACE.closingTime}</b></div>
-          <div className="driver-place-sheet__company">
-            <span className="driver-place-sheet__company-avatar"><DriverIcon name="package" size={19}/></span>
-            <span className="driver-place-sheet__company-info"><small>Transportadora</small><strong>{DEMO_PLACE.name}</strong></span>
-          </div>
+        </div>
+        <div className="driver-place-sheet__company">
+          <span className="driver-place-sheet__company-avatar"><DriverIcon name="package" size={19}/></span>
+          <span className="driver-place-sheet__company-info"><small>Transportadora</small><strong>{DEMO_PLACE.name}</strong></span>
         </div>
         <div className="driver-place-sheet__actions">
           <button type="button" className="driver-place-sheet__accept"><DriverIcon name="check" size={21}/>Aceitar</button>
