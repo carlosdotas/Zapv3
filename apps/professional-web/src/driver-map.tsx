@@ -22,7 +22,7 @@ function ContactRow({ label, name, phone }: { label: string; name: string; phone
   return <div className="driver-place-sheet__company">
     <span className="driver-place-sheet__company-avatar"><DriverIcon name={label === 'Cliente' ? 'pin' : 'package'} size={19}/></span>
     <span className="driver-place-sheet__company-info"><small>{label}</small><strong>{name}</strong>{!digits && <small>(00) 00000-0000 · Exemplo</small>}</span>
-    {digits.length >= 12 ? <a className="driver-place-sheet__whatsapp" href={`https://wa.me/${digits}`} target="_blank" rel="noreferrer" aria-label={`Abrir WhatsApp: ${label}`}>{icon}<span>WhatsApp</span></a> : <button type="button" className="driver-place-sheet__whatsapp" disabled aria-label={`WhatsApp de ${label} indisponível: número não informado`}>{icon}<span>WhatsApp</span></button>}
+    {digits.length >= 12 ? <a className="driver-place-sheet__whatsapp" href={`https://wa.me/${digits}`} target="_blank" rel="noreferrer" aria-label={`Abrir WhatsApp: ${label}`}>{icon}<span>WhatsApp</span></a> : <button type="button" className="driver-place-sheet__whatsapp" onClick={() => window.alert("Contato de exemplo. O WhatsApp ficará disponível quando o número for cadastrado.")} aria-label={`WhatsApp de ${label}: contato de exemplo`}>{icon}<span>WhatsApp</span></button>}
   </div>;
 }
 
