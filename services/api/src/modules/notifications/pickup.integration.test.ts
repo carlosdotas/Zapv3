@@ -16,7 +16,7 @@ beforeAll(async()=>{
  if(!enabled)return;
  const url=new URL(process.env.ZAP_TEST_DATABASE_URL!);if(!url.pathname.startsWith('/zap_test'))throw new Error('Use um banco de teste zap_test.');
  admin=mysql.createPool(url.toString());await admin.query('CREATE DATABASE `'+database+'`');url.pathname='/'+database;pool=mysql.createPool(url.toString());store=new PickupStore(pool);
- for(const file of ['002_identity_bootstrap.sql','003_pickup_calls.sql','004_pickup_self_test.sql','005_pickup_test_details.sql'])for(const sql of (await readFile(`../../database/migrations/${file}`,'utf8')).split(';').map(s=>s.trim()).filter(Boolean))await pool.query(sql);
+ for(const file of ['002_identity_bootstrap.sql','003_pickup_calls.sql','004_pickup_self_test.sql','005_pickup_test_details.sql','007_professional_link_audit.sql'])for(const sql of (await readFile(`../../database/migrations/${file}`,'utf8')).split(';').map(s=>s.trim()).filter(Boolean))await pool.query(sql);
  await pool.query(`INSERT INTO roles (id,code) VALUES ('r-company','company_admin'),('r-professional','professional'),('r-platform','platform_admin')`);
  for(const id of ['company-user','other-company-user','pro','outsider','platform-admin']) {
   const phone=id==='platform-admin'?'+5562999999999':id;
@@ -115,3 +115,18 @@ test.skipIf(!enabled)('Socket.IO: a chamada usa prazo de dois minutos e expira p
  await pool.execute('UPDATE pickup_test_calls SET expires_at=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND WHERE id=?',[id]);
  await expect(expired).resolves.toMatchObject({id,status:'expired'});
 },10000);
+test.skipIf(!enabled)('administrador autoriza motorista cadastrado por telefone sem atravessar empresas ou reativar vínculo revogado',async()=>{
+ const phone='+5562988887777';
+ await pool.execute('UPDATE users SET phone_e164=? WHERE id=?',[phone,'outsider']);
+ await expect(store.linkProfessional('other-company-user','company',phone)).rejects.toThrow('FORBIDDEN');
+ await expect(store.linkProfessional('company-user','company','invalid')).rejects.toThrow('INVALID_PHONE');
+ await expect(store.linkProfessional('company-user','company','+5562977777777')).rejects.toThrow('DRIVER_NOT_FOUND');
+ await expect(store.linkProfessional('company-user','company',phone)).resolves.toEqual({linked:true});
+ await expect(store.linkProfessional('company-user','company',phone)).resolves.toEqual({linked:true});
+ const [audit]=await pool.query<any[]>("SELECT actor_user_id FROM company_professional_link_events WHERE company_id='company' AND professional_user_id='outsider'");
+ expect(audit).toHaveLength(1);expect(audit[0].actor_user_id).toBe('company-user');
+ await store.duty('outsider',true);
+ expect((await store.professionals('company-user','company')).some(driver=>driver.id==='outsider' && Boolean(driver.online))).toBe(true);
+ await pool.query("UPDATE company_professionals SET status='revoked' WHERE company_id='company' AND professional_user_id='outsider'");
+ await expect(store.linkProfessional('company-user','company',phone)).rejects.toThrow('LINK_INACTIVE');
+});

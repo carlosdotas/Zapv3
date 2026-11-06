@@ -11,7 +11,17 @@ export async function login(baseUrl: string, phone: string, password: string): P
   try { return await response.json() as LoginResult; }
   catch { throw new Error('LOGIN_SERVER_ERROR'); }
 }
-export async function registerProfessional(baseUrl: string, input: { name: string; phone: string; password: string }): Promise<{ user: SessionUser }> { const response = await fetch(`${baseUrl}/api/v1/auth/register-professional`, { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(input) }); if (!response.ok) throw new Error(response.status === 409 ? 'PHONE_EXISTS' : 'REGISTER_FAILED'); return response.json() as Promise<{ user: SessionUser }>; }
+export async function registerProfessional(baseUrl: string, input: { name: string; phone: string; password: string }): Promise<{ user: SessionUser }> {
+  let response: Response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try { response = await fetch(`${baseUrl}/api/v1/auth/register-professional`, { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(input), signal: controller.signal }); }
+  catch { throw new Error('REGISTER_CONNECTION_ERROR'); }
+  finally { clearTimeout(timeout); }
+  if (!response.ok) throw new Error(response.status === 409 ? 'PHONE_EXISTS' : response.status >= 500 ? 'REGISTER_SERVER_ERROR' : 'REGISTER_FAILED');
+  try { return await response.json() as { user: SessionUser }; }
+  catch { throw new Error('REGISTER_CONNECTION_ERROR'); }
+}
 export async function getMe(baseUrl: string, token: string): Promise<{user: SessionUser}> {
   const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),10000);
   let response: Response;

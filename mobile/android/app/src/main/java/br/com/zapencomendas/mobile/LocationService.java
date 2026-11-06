@@ -25,6 +25,8 @@ public class LocationService extends Service implements LocationListener {
     public static volatile float accuracy = 0.0f;
     public static volatile long updatedAt = 0L;
     public static volatile boolean running = false;
+    public static volatile boolean dutyConfirmed = false;
+    public static volatile String dutyError = "";
     public static volatile String locationStatus = "inactive";
     private static volatile Location latestLocation;
 
@@ -35,6 +37,8 @@ public class LocationService extends Service implements LocationListener {
     public void onCreate() {
         super.onCreate();
         running = true;
+        dutyConfirmed = false;
+        dutyError = "";
         locationStatus = "searching";
         createChannel();
         startForeground(NOTIFICATION_ID, buildNotification());
@@ -123,6 +127,8 @@ public class LocationService extends Service implements LocationListener {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && "stop".equals(intent.getAction())) {
+            dutyConfirmed = false;
+            dutyError = "";
             if (locationManager != null) locationManager.removeUpdates(this);
             clearLastLocation();
             if (connection != null) connection.stopDuty(); else stopSelf();
@@ -181,6 +187,7 @@ public class LocationService extends Service implements LocationListener {
         if (locationManager != null) locationManager.removeUpdates(this);
         clearLastLocation();
         running = false;
+        dutyConfirmed = false;
         locationStatus = "inactive";
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();

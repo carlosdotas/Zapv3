@@ -28,7 +28,7 @@ final class DutyConnection {
     private final Runnable heartbeat = new Runnable() {
         public void run() {
             if (stopping) return;
-            if (socket.connected()) socket.emit("presence:heartbeat", new JSONObject(), (Ack) args -> {if ("UNAUTHENTICATED".equals(object(args).optString("code"))) handler.post(service::stopSelf);});
+            if (socket.connected()) socket.emit("presence:heartbeat", new JSONObject(), (Ack) args -> {if ("UNAUTHENTICATED".equals(object(args).optString("code"))) { LocationService.dutyConfirmed=false; LocationService.dutyError="Sua sessão expirou. Entre novamente."; handler.post(service::stopSelf); }});
             handler.postDelayed(this, 30000);
         }
     };
@@ -41,9 +41,14 @@ final class DutyConnection {
         ensureCallChannel(service);
         socket.on(Socket.EVENT_CONNECT, args -> {
             if (stopping) return;
+            LocationService.dutyConfirmed=false;
             socket.emit("duty:set", json("onDuty",true), (Ack) result -> {
+                if (stopping || !socket.connected()) return;
                 JSONObject response = object(result);
-                if (response.has("error")) { handler.post(service::stopSelf); return; }
+                JSONObject data = response.optJSONObject("data");
+                if (response.has("error") || data == null || !data.optBoolean("onDuty", false)) { LocationService.dutyError=response.optString("error", "Não foi possível entrar em serviço no servidor."); handler.post(service::stopSelf); return; }
+                LocationService.dutyError="";
+                LocationService.dutyConfirmed=true;
                 socket.emit("pickup:sync", new JSONObject(), (Ack) items -> {
                     JSONArray calls = object(items).optJSONArray("data");
                     if (calls != null) for (int i=0;i<calls.length();i++) receive(calls.optJSONObject(i));
@@ -52,7 +57,8 @@ final class DutyConnection {
             });
         });
         socket.on("pickup:updated", args -> receive(object(args)));
-        socket.on(Socket.EVENT_CONNECT_ERROR, args -> {if(args.length>0 && String.valueOf(args[0]).contains("Sessão inválida.")) handler.post(service::stopSelf);});
+        socket.on(Socket.EVENT_DISCONNECT, args -> LocationService.dutyConfirmed=false);
+        socket.on(Socket.EVENT_CONNECT_ERROR, args -> {LocationService.dutyConfirmed=false; if(args.length>0 && String.valueOf(args[0]).contains("Sessão inválida.")) { LocationService.dutyError="Sua sessão expirou. Entre novamente."; handler.post(service::stopSelf); }});
         socket.connect();
         handler.post(heartbeat);
     }
@@ -142,6 +148,7 @@ final class DutyConnection {
     private void publishStatus(String id,String status) {service.sendBroadcast(new Intent(PickupAlertActivity.STATUS_ACTION).setPackage(service.getPackageName()).putExtra("id",id).putExtra("status",status));}
     void stopDuty() {
         stopping=true;
+        LocationService.dutyConfirmed=false;
         if (socket.connected()) socket.emit("duty:set",json("onDuty",false),(Ack) args->handler.post(service::stopSelf));
         handler.postDelayed(service::stopSelf,3000);
     }

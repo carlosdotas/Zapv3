@@ -23,6 +23,7 @@
 12. Companies save reusable pickup places (coordinates, friendly nickname, notes); all pilot companies share one receiving depot as default destination.
 13. Orders specify pickup, shared depot, description, contact, instructions; direct/group offers, accept/reject, status changes, evidence photos, history. Exactly ONE professional may accept an order.
 14. Professional GPS sharing is opt-in and active-work scoped; company map only shows authorized available professionals. No public marketplace, finance, passenger rides, AI routing, or complex optimization in MVP.
+14a. A company administrator or platform administrator may explicitly authorize a registered professional for that company using the exact phone number; record the actor, keep the association company-scoped, and never silently reactivate a revoked link. Attendants cannot create these links.
 
 ## 3. Stack and deployment constraints
 15. Node.js LTS + TypeScript, npm workspaces; Fastify REST API (`/api/v1`) as a MODULAR MONOLITH, NOT distributed microservices. Realtime only where needed.

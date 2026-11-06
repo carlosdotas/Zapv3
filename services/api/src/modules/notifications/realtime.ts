@@ -21,19 +21,20 @@ export function registerRealtime(app: FastifyInstance, identity: IdentityStore, 
     }
   };
   const actions=(socket:Socket) => {
-    let lastLocation=0; let operations=0;
+    let lastLocation=0; let operations=0; let lastLink=0;
     const on=(event:string,work:(userId:string,body:any)=>Promise<unknown>,professional=false)=>socket.on(event,async(body,ack)=>{
       if(typeof ack!=='function') return;
       if(operations>=4) { ack({error:'Aguarde a conclusão da solicitação.'}); return; }
       operations++;
       try { const user=await authenticate(socket.data.token); if(professional && !user.roles.includes('professional')) throw new Error('FORBIDDEN'); ack({data:await work(user.id,body)}); }
-      catch(e) { const code=(e as Error).message; ack({...(code==='UNAUTHENTICATED'?{code:'UNAUTHENTICATED'}:{}),error:code==='UNAUTHENTICATED'?'Sua sessão não está mais disponível.':code==='FORBIDDEN'?'Você não tem permissão para esta solicitação.':code==='UNAVAILABLE'?'Motorista fora de serviço ou indisponível.':code==='RATE_LIMIT'?'Aguarde 30 segundos antes de outra chamada.':code==='INVALID_DETAILS'?'Confira o nome, o endereço e a localização da coleta.':code==='SETUP_INACTIVE'?'A configuração de teste está inativa. Solicite a revisão do acesso.':'Não foi possível concluir a solicitação.'}); }
+      catch(e) { const code=(e as Error).message; ack({...(code==='UNAUTHENTICATED'?{code:'UNAUTHENTICATED'}:{}),error:code==='UNAUTHENTICATED'?'Sua sessão não está mais disponível.':code==='FORBIDDEN'?'Você não tem permissão para esta solicitação.':code==='UNAVAILABLE'?'Motorista fora de serviço ou indisponível.':code==='RATE_LIMIT'?'Aguarde 30 segundos antes de outra chamada.':code==='LINK_RATE_LIMIT'?'Aguarde alguns segundos antes de tentar outro vínculo.':code==='LINK_UNAVAILABLE'?'A autorização de motoristas está temporariamente indisponível. Contate a administração.':code==='INVALID_PHONE'?'Informe um telefone válido com DDD.':code==='DRIVER_NOT_FOUND'?'Motorista ativo não encontrado. Confira o telefone e o cadastro.':code==='LINK_INACTIVE'?'Este vínculo está inativo. Solicite a revisão à administração.':code==='INVALID_DETAILS'?'Confira o nome, o endereço e a localização da coleta.':code==='SETUP_INACTIVE'?'A configuração de teste está inativa. Solicite a revisão do acesso.':'Não foi possível concluir a solicitação.'}); }
       finally { operations--; }
     });
     on('pickup:sync',id=>store.sync(id));
     on('company:list',id=>store.companies(id));
     on('pickup:setup-self-test',id=>store.setupSelfTest(id));
     on('professional:list',(id,b)=>store.professionals(id,String(b?.companyId??'')));
+    on('professional:link',async(id,b)=>{ if(Date.now()-lastLink<3000)throw new Error('LINK_RATE_LIMIT'); lastLink=Date.now(); return store.linkProfessional(id,String(b?.companyId??''),String(b?.phone??'')); });
     on('pickup:create',async(id,b)=>{ const call=await store.create(id,String(b?.companyId??''),String(b?.professionalId??''),b?.details); await publish(call); return call; });
     on('pickup:respond',async(id,b)=>{if(!['accepted','rejected'].includes(b?.answer)) throw new Error('INVALID'); const call=await store.respond(id,String(b.id),b.answer); await publish(call); return call;},true);
     on('duty:set',async(id,b)=>{if(typeof b?.onDuty!=='boolean') throw new Error('INVALID'); await store.duty(id,b.onDuty); return {onDuty:b.onDuty};},true);

@@ -8,13 +8,15 @@ import { isPickupForProfessional } from './pickup-target';
 
 type Coordinates = { latitude: number; longitude: number; updatedAt: number } | null;
 type LocationStatus = 'searching'|'active'|'permission'|'gps_disabled'|'stale'|'unavailable'|'inactive'|'unsupported';
-type Native = { startDuty:(token:string)=>void; stopLocation:()=>void; isLocationRunning:()=>boolean; canShowUrgentCalls?:()=>boolean; openUrgentCallSettings?:()=>void; getLatitude?:()=>number; getLongitude?:()=>number; getLocationUpdatedAt?:()=>number; getLocationStatus?:()=>string; requestLocation?:(token:string)=>void };
+type Native = { startDuty:(token:string)=>void; stopLocation:()=>void; isLocationRunning:()=>boolean; isDutyConfirmed?:()=>boolean; getDutyError?:()=>string; canShowUrgentCalls?:()=>boolean; openUrgentCallSettings?:()=>void; getLatitude?:()=>number; getLongitude?:()=>number; getLocationUpdatedAt?:()=>number; getLocationStatus?:()=>string; requestLocation?:(token:string)=>void };
 
 export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUrl:string; token:string; userId:string; userName:string; onLogout:()=>void }) {
   const native = (window as unknown as {AndroidApp?:Native}).AndroidApp;
   const [socket, setSocket] = useState<Socket>();
   const [connected, setConnected] = useState(false);
   const [duty, setDuty] = useState(()=>native?.isLocationRunning() ?? false);
+  const [nativeDutyConfirmed, setNativeDutyConfirmed] = useState(false);
+  const [nativeDutyError, setNativeDutyError] = useState('');
   const [location, setLocation] = useState<Coordinates>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('searching');
   const [locationRetry, setLocationRetry] = useState(0);
@@ -38,7 +40,7 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
   useEffect(()=>{
     if(!native)return;
     let wasRunning=false;
-    const update=()=>{try{const running=native.isLocationRunning();setDuty(running);if(running && !wasRunning)setMessage('');wasRunning=running;const timestamp=native.getLocationUpdatedAt?.() ?? 0;const latitude=native.getLatitude?.();const longitude=native.getLongitude?.();const fresh=timestamp>0 && Date.now()-timestamp<120000 && typeof latitude==='number' && typeof longitude==='number' && Number.isFinite(latitude) && Number.isFinite(longitude);if(running && fresh){setLocation({latitude:latitude!,longitude:longitude!,updatedAt:timestamp});setLocationStatus('active');}else{setLocation(null);const status=native.getLocationStatus?.();setLocationStatus(!running?'inactive':fresh? 'active':status==='permission_required'?'permission':status==='gps_disabled'?'gps_disabled':status==='unavailable'?'unavailable':timestamp>0?'stale':'searching');}}catch{setLocation(null);setLocationStatus('unavailable');}};
+    const update=()=>{try{const running=native.isLocationRunning();setDuty(running);setNativeDutyConfirmed(running && (native.isDutyConfirmed?.() ?? true));setNativeDutyError(native.getDutyError?.() ?? '');if(running && !wasRunning)setMessage('');wasRunning=running;const timestamp=native.getLocationUpdatedAt?.() ?? 0;const latitude=native.getLatitude?.();const longitude=native.getLongitude?.();const fresh=timestamp>0 && Date.now()-timestamp<120000 && typeof latitude==='number' && typeof longitude==='number' && Number.isFinite(latitude) && Number.isFinite(longitude);if(running && fresh){setLocation({latitude:latitude!,longitude:longitude!,updatedAt:timestamp});setLocationStatus('active');}else{setLocation(null);const status=native.getLocationStatus?.();setLocationStatus(!running?'inactive':fresh? 'active':status==='permission_required'?'permission':status==='gps_disabled'?'gps_disabled':status==='unavailable'?'unavailable':timestamp>0?'stale':'searching');}}catch{setLocation(null);setLocationStatus('unavailable');}};
     update();const timer=window.setInterval(update,1500);return()=>window.clearInterval(timer);
   },[native]);
 
@@ -83,10 +85,12 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
   const notice=<>
     {urgentAccess==='denied' && <div className="driver-notice"><strong>Ative as chamadas em tela cheia</strong><p>Permita a exibição sobre a tela bloqueada nas configurações do Android.</p><button type="button" onClick={()=>native?.openUrgentCallSettings?.()}>Abrir configurações</button></div>}
     {urgentAccess==='update' && <div className="driver-notice"><p>Atualize o aplicativo do motorista para receber chamadas em tela cheia.</p></div>}
+    {nativeDutyError && <p className="driver-status-message" role="alert">{nativeDutyError}</p>}
+    {native && duty && !nativeDutyConfirmed && !nativeDutyError && <p className="driver-status-message" role="status">Aguardando confirmação do servidor para ficar em serviço.</p>}
     {message && <p className="driver-status-message" role="status">{message}</p>}
     {!native && duty && <p className="driver-browser-note">No navegador, localização e avisos em segundo plano dependem do sistema. Use o aplicativo Android durante o serviço.</p>}
   </>;
-  return <div className="driver-app">{duty ? <DriverOnline name={userName} connected={connected} location={location && now-location.updatedAt<120000 ? location : null} locationStatus={locationStatus} onRequestLocation={retryLocation} onStop={()=>changeDuty(false)} onLogout={logout}>{notice}</DriverOnline> : <DriverOffline name={userName} disabled={!native && !connected} onStart={()=>changeDuty(true)} onLogout={logout}>{notice}</DriverOffline>}
+  return <div className="driver-app">{duty ? <DriverOnline name={userName} connected={connected && (!native || nativeDutyConfirmed)} location={location && now-location.updatedAt<120000 ? location : null} locationStatus={locationStatus} onRequestLocation={retryLocation} onStop={()=>changeDuty(false)} onLogout={logout}>{notice}</DriverOnline> : <DriverOffline name={userName} disabled={!native && !connected} onStart={()=>changeDuty(true)} onLogout={logout}>{notice}</DriverOffline>}
     {pending.length>0 && <div className="incoming-layer">{pending.map(call=><DriverCall key={call.id} call={call} now={now} onAnswer={answer}/>)}</div>}
   </div>;
 }

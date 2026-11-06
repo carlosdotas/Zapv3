@@ -34,6 +34,12 @@ public final class NativeBridge {
     public boolean isLocationRunning() { return LocationService.running; }
 
     @JavascriptInterface
+    public boolean isDutyConfirmed() { return LocationService.dutyConfirmed; }
+
+    @JavascriptInterface
+    public String getDutyError() { return LocationService.dutyError; }
+
+    @JavascriptInterface
     public double getLatitude() { return LocationService.latitude; }
 
     @JavascriptInterface

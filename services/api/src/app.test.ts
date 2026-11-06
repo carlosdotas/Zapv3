@@ -30,6 +30,17 @@ describe('API de identidade', () => {
   });
 
   it('cadastra profissional e permite entrar e consultar /me', async () => { const app = buildApp(); const registered = await app.inject({ method: 'POST', url: '/api/v1/auth/register-professional', payload: { name: 'Ana Entregas', phone: '+5511888888888', password: 'SenhaSegura123' } }); expect(registered.statusCode).toBe(201); const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { phone: '+5511888888888', password: 'SenhaSegura123' } }); expect(login.statusCode).toBe(200); const token = login.json().token; const me = await app.inject({ method: 'GET', url: '/api/v1/me', headers: { authorization: `Bearer ${token}` } }); expect(me.statusCode).toBe(200); expect(me.json().user.roles).toContain('professional'); });
+  it('valida o cadastro e não cria outra conta para o mesmo telefone', async () => {
+    const app = buildApp();
+    for (const payload of [{}, { name: '  ', phone: '+5562999999999', password: 'Senha123' }, { name: 'Motorista', phone: '62999999999', password: 'Senha123' }, { name: 'Motorista', phone: '+5562999999999', password: 'curta' }]) {
+      expect((await app.inject({ method: 'POST', url: '/api/v1/auth/register-professional', payload })).statusCode).toBe(400);
+    }
+    const valid = { name: ' Motorista ', phone: '+5562999999999', password: 'Senha123' };
+    expect((await app.inject({ method: 'POST', url: '/api/v1/auth/register-professional', payload: valid })).statusCode).toBe(201);
+    expect((await app.inject({ method: 'POST', url: '/api/v1/auth/register-professional', payload: valid })).statusCode).toBe(409);
+    expect((await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { phone: valid.phone, password: valid.password } })).statusCode).toBe(200);
+    await app.close();
+  });
   it('recusa acesso sem sessão e escalação administrativa', async () => { const app = buildApp(); expect((await app.inject({ method: 'GET', url: '/api/v1/me' })).statusCode).toBe(401); const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { phone: '+5511999999999', password: 'Profissional123!' } }); const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/ping', headers: { authorization: `Bearer ${login.json().token}` } }); expect(denied.statusCode).toBe(403); });
   it('mantém sessões independentes e revoga somente a sessão encerrada', async () => {
     const app=buildApp();const credentials={phone:'+5511999999999',password:'Profissional123!'};

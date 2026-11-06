@@ -14,6 +14,7 @@ export class MysqlStore implements IdentityStore {
   private configured = true;
   ready: Promise<void>;
   callsReady: Promise<void>;
+  linksReady: Promise<void>;
 
   constructor() {
     const host = process.env.DB_HOST?.trim();
@@ -28,6 +29,8 @@ export class MysqlStore implements IdentityStore {
     this.ready = this.initialize();
     this.callsReady = this.ready.then(() => this.initializeCalls());
     void this.callsReady.catch(() => {});
+    this.linksReady = this.callsReady.then(() => this.initializeLinks());
+    void this.linksReady.catch(() => console.error('Não foi possível preparar a auditoria de vínculos de motoristas.'));
   }
 
   private async initialize() {
@@ -64,6 +67,22 @@ export class MysqlStore implements IdentityStore {
       }
     } finally {
       if (locked) await connection.query("SELECT RELEASE_LOCK('zap_calls_bootstrap')");
+      connection.release();
+    }
+  }
+
+  private async initializeLinks() {
+    const connection = await this.pool.getConnection();
+    let locked = false;
+    try {
+      const [lock] = await connection.query<RowDataPacket[]>("SELECT GET_LOCK('zap_links_bootstrap', 30) AS acquired");
+      if (lock[0]?.acquired !== 1) throw new Error('Não foi possível preparar os vínculos de motoristas.');
+      locked = true;
+      const migration = await readFile(resolve(__dirname, 'migrations', '007_professional_link_audit.sql'), 'utf8')
+        .catch(() => readFile(resolve(__dirname, '../../../database/migrations/007_professional_link_audit.sql'), 'utf8'));
+      for (const statement of migration.split(';').map(part => part.trim()).filter(Boolean)) await connection.query(statement);
+    } finally {
+      if (locked) await connection.query("SELECT RELEASE_LOCK('zap_links_bootstrap')");
       connection.release();
     }
   }

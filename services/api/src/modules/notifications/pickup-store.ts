@@ -6,7 +6,7 @@ type Row = RowDataPacket & { id: string; company_id: string; professional_user_i
 const mapCall = (r: Row): Call => ({ id: r.id, companyId: r.company_id, professionalId: r.professional_user_id, status: r.status, expiresAt: new Date(r.expires_at).toISOString(), companyName: r.display_company_name, pickupName: r.pickup_name ?? null, pickupAddress: r.pickup_address ?? null, distanceKm: r.distance_km == null ? null : Number(r.distance_km), pickupLatitude: r.pickup_latitude == null ? null : Number(r.pickup_latitude), pickupLongitude: r.pickup_longitude == null ? null : Number(r.pickup_longitude) });
 const detailColumns = 't.*,COALESCE(d.company_name,c.name) AS display_company_name,d.pickup_name,d.pickup_address,d.distance_km,d.pickup_latitude,d.pickup_longitude';
 export class PickupStore {
-  constructor(private pool: Pool) {}
+  constructor(private pool: Pool, private linksReady: Promise<void> = Promise.resolve()) {}
   private async getCall(id: string, db: Pool | PoolConnection = this.pool) {
     const [rows] = await db.execute<Row[]>(`SELECT ${detailColumns} FROM pickup_test_calls t JOIN companies c ON c.id=t.company_id LEFT JOIN pickup_test_details d ON d.call_id=t.id WHERE t.id=?`,[id]);
     return mapCall(rows[0]);
@@ -24,7 +24,28 @@ export class PickupStore {
   }
   async professionals(userId: string, companyId: string) {
     await this.company(userId,companyId);
-    const [rows] = await this.pool.execute<RowDataPacket[]>(`SELECT u.id,u.name,u.phone_e164 AS phone,(d.on_duty=1 AND d.last_seen_at>UTC_TIMESTAMP(3)-INTERVAL 90 SECOND) AS online FROM company_professionals cp JOIN users u ON u.id=cp.professional_user_id JOIN professional_profiles p ON p.user_id=u.id LEFT JOIN professional_duty d ON d.user_id=u.id WHERE cp.company_id=? AND cp.status='active' AND u.status='active' ORDER BY u.name LIMIT 200`,[companyId]); return rows;
+    const [rows] = await this.pool.execute<RowDataPacket[]>(`SELECT u.id,u.name,u.phone_e164 AS phone,(d.on_duty=1 AND d.last_seen_at>UTC_TIMESTAMP(3)-INTERVAL 90 SECOND) AS online FROM company_professionals cp JOIN users u ON u.id=cp.professional_user_id JOIN professional_profiles p ON p.user_id=u.id LEFT JOIN professional_duty d ON d.user_id=u.id WHERE cp.company_id=? AND cp.status='active' AND u.status='active' AND EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='professional') ORDER BY online DESC,u.name LIMIT 200`,[companyId]); return rows;
+  }
+  async linkProfessional(userId: string, companyId: string, phone: string) {
+    try { await this.linksReady; } catch { throw new Error('LINK_UNAVAILABLE'); }
+    const db = await this.pool.getConnection();
+    try {
+      await db.beginTransaction();
+      const [admins] = await db.execute<RowDataPacket[]>(`SELECT c.id FROM companies c JOIN users u ON u.id=? AND u.status='active' WHERE c.id=? AND c.status='active' AND (EXISTS (SELECT 1 FROM company_members m JOIN roles r ON r.id=m.role_id WHERE m.company_id=c.id AND m.user_id=u.id AND m.status='active' AND r.code='company_admin') OR EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='platform_admin'))`, [userId, companyId]);
+      if (!admins.length) throw new Error('FORBIDDEN');
+      if (!/^\+55\d{10,11}$/.test(phone)) throw new Error('INVALID_PHONE');
+      const [drivers] = await db.execute<RowDataPacket[]>(`SELECT u.id FROM users u JOIN professional_profiles p ON p.user_id=u.id JOIN user_global_roles ugr ON ugr.user_id=u.id JOIN roles r ON r.id=ugr.role_id AND r.code='professional' WHERE u.phone_e164=? AND u.status='active' LIMIT 1 FOR UPDATE`, [phone]);
+      if (!drivers.length) throw new Error('DRIVER_NOT_FOUND');
+      const driverId = String(drivers[0].id);
+      const [links] = await db.execute<RowDataPacket[]>('SELECT status FROM company_professionals WHERE company_id=? AND professional_user_id=? FOR UPDATE', [companyId, driverId]);
+      if (links.length && links[0].status !== 'active') throw new Error('LINK_INACTIVE');
+      if (!links.length) {
+        await db.execute('INSERT INTO company_professionals (company_id,professional_user_id) VALUES (?,?)', [companyId, driverId]);
+        await db.execute('INSERT INTO company_professional_link_events (id,company_id,professional_user_id,actor_user_id) VALUES (?,?,?,?)', [randomUUID(), companyId, driverId, userId]);
+      }
+      await db.commit();
+      return { linked: true };
+    } catch (error) { await db.rollback(); throw error; } finally { db.release(); }
   }
   async setupSelfTest(userId: string) {
     const db = await this.pool.getConnection();
@@ -52,7 +73,7 @@ export class PickupStore {
     const db = await this.pool.getConnection();
     try {
       await db.beginTransaction(); await this.company(userId,companyId,db);
-      const [targets] = await db.execute<RowDataPacket[]>(`SELECT cp.professional_user_id FROM company_professionals cp JOIN users u ON u.id=cp.professional_user_id JOIN professional_profiles p ON p.user_id=u.id JOIN professional_duty d ON d.user_id=u.id WHERE cp.company_id=? AND cp.professional_user_id=? AND cp.status='active' AND u.status='active' AND d.on_duty=1 AND d.last_seen_at>UTC_TIMESTAMP(3)-INTERVAL 90 SECOND FOR UPDATE`,[companyId,professionalId]);
+      const [targets] = await db.execute<RowDataPacket[]>(`SELECT cp.professional_user_id FROM company_professionals cp JOIN users u ON u.id=cp.professional_user_id JOIN professional_profiles p ON p.user_id=u.id JOIN professional_duty d ON d.user_id=u.id WHERE cp.company_id=? AND cp.professional_user_id=? AND cp.status='active' AND u.status='active' AND d.on_duty=1 AND d.last_seen_at>UTC_TIMESTAMP(3)-INTERVAL 90 SECOND AND EXISTS (SELECT 1 FROM user_global_roles ugr JOIN roles r ON r.id=ugr.role_id WHERE ugr.user_id=u.id AND r.code='professional') FOR UPDATE`,[companyId,professionalId]);
       if (!targets.length) throw new Error('UNAVAILABLE');
       const [recent] = await db.execute<RowDataPacket[]>(`SELECT id FROM pickup_test_calls WHERE professional_user_id=? AND created_at>UTC_TIMESTAMP(3)-INTERVAL 30 SECOND LIMIT 1`,[professionalId]);
       if (recent.length) throw new Error('RATE_LIMIT');

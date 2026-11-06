@@ -37,6 +37,7 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
   const [message, setMessage] = useState('');
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [confirmLink, setConfirmLink] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const companyRef = useRef('');
   const driversRequest = useRef(0);
@@ -100,6 +101,7 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
   }, [drivers, phone]);
 
   function updatePhone(value: string) {
+    setConfirmLink(false);
     const formatted = formatPhone(value);
     setPhone(formatted);
     const digits = phoneDigits(formatted);
@@ -119,6 +121,19 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
       setDrivers([]); setCompanyId(setup.companyId); setPhone(formatPhone(setup.phone)); setDriverId(setup.professionalId);
       refreshDrivers(socket, setup.companyId);
       setMessage('Teste preparado. Abra o aplicativo do motorista com este número e toque em “Entrar em serviço”.');
+    });
+  }
+
+  function linkDriver() {
+    const digits = phoneDigits(phone);
+    if (!socket?.connected || !companyId || busy || digits.length < 10 || digits.length > 11) return;
+    setConfirmLink(false); setBusy(true); setMessage('');
+    socket.timeout(10000).emit('professional:link', { companyId, phone: `+55${digits}` }, (failure: Error | null, result?: Reply<{ linked: boolean }>) => {
+      setBusy(false);
+      if (failure || result?.error || !result?.data?.linked) { setMessage(result?.error || 'Não foi possível confirmar o vínculo. Atualize a lista antes de tentar novamente.'); return; }
+      setMessage('Motorista autorizado. Ele aparecerá na lista quando entrar em serviço.');
+      lastDriversRefresh.current = { company: '', at: 0 };
+      refreshDrivers(socket, companyId);
     });
   }
 
@@ -156,11 +171,13 @@ export function Dashboard({ apiUrl, token, user, onLogout }: { apiUrl: string; t
 
         {canSetup && <div className="company-self-test"><div><strong>Quer testar no seu próprio telefone?</strong><p>Prepare uma transportadora de teste e vincule sua conta de motorista. Nenhum pedido será criado.</p></div><button type="button" onClick={setupSelfTest} disabled={!connected || busy}>Usar meu número para teste</button></div>}
 
-        <label className="company-field">Transportadora<select value={companyId} onChange={event => { driversRequest.current++; lastDriversRefresh.current = { company: '', at: 0 }; companyRef.current = event.target.value; setCompanyId(event.target.value); setRefreshing(false); setDrivers([]); setDriverId(''); setPhone(''); }}><option value="">Selecione a transportadora</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
+        <label className="company-field">Transportadora<select value={companyId} disabled={busy} onChange={event => { setConfirmLink(false); driversRequest.current++; lastDriversRefresh.current = { company: '', at: 0 }; companyRef.current = event.target.value; setCompanyId(event.target.value); setRefreshing(false); setDrivers([]); setDriverId(''); setPhone(''); }}><option value="">Selecione a transportadora</option>{companies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
         {!companies.length && connected && <p className="company-hint">Nenhuma transportadora disponível. {canSetup ? 'Use seu número para preparar um teste.' : 'Peça à administração para vincular sua conta.'}</p>}
 
         <label className="company-field">Telefone do motorista<input type="tel" inputMode="tel" autoComplete="off" value={phone} onFocus={() => socket && refreshDrivers(socket, companyId)} onChange={event => updatePhone(event.target.value)} placeholder="(62) 99999-9999" disabled={!companyId} /></label>
         <p className="company-hint">Digite o telefone de um motorista em serviço vinculado à transportadora ou escolha na lista.</p>
+        <button className="company-refresh" type="button" onClick={() => setConfirmLink(true)} disabled={!connected || !companyId || busy || phoneDigits(phone).length < 10}>Autorizar motorista pelo telefone</button>
+        {confirmLink && <div className="company-self-test" role="group" aria-label="Confirmar autorização do motorista"><div><strong>Autorizar motorista?</strong><p>O telefone {formatPhone(phone)} será vinculado à transportadora selecionada.</p></div><div><button type="button" onClick={linkDriver} disabled={busy}>Confirmar autorização</button><button type="button" onClick={() => setConfirmLink(false)} disabled={busy}>Cancelar</button></div></div>}
         <label className="company-field">Motoristas em serviço<select value={selected?.id || ''} onFocus={() => socket && refreshDrivers(socket, companyId)} onPointerDown={() => socket && refreshDrivers(socket, companyId)} onChange={event => { const chosen = matchingDrivers.find(driver => driver.id === event.target.value); setDriverId(event.target.value); if (chosen) setPhone(formatPhone(chosen.phone)); }} disabled={!companyId || !connected}><option value="">{refreshing ? 'Atualizando motoristas...' : 'Selecione o motorista'}</option>{matchingDrivers.map(driver => <option key={driver.id} value={driver.id}>{driver.name} — {formatPhone(driver.phone)}</option>)}</select></label>
         {companyId && connected && !refreshing && !matchingDrivers.length && <p className="company-hint">{phone ? 'Nenhum motorista em serviço encontrado com esse telefone.' : 'Nenhum motorista vinculado está em serviço no momento.'}</p>}
         {selected && <div className={`company-driver-status${selected.online ? ' company-driver-status--online' : ''}`}><span />{selected.online ? 'Motorista em serviço, pronto para receber.' : 'Motorista fora de serviço. Peça para abrir o aplicativo e entrar em serviço.'}</div>}

@@ -19,7 +19,7 @@ beforeAll(async()=>{
   admin=mysql.createPool(url.toString());await admin.query('CREATE DATABASE `'+database+'`');
   process.env.DB_HOST=url.hostname;process.env.DB_PORT=url.port || '3306';process.env.DB_USER=decodeURIComponent(url.username);process.env.DB_PASSWORD=decodeURIComponent(url.password);process.env.DB_NAME=database;
   process.env.DEFAULT_ADMIN_PHONE='+5562999999999';process.env.DEFAULT_ADMIN_PASSWORD='SenhaTeste123';
-  store=new MysqlStore();await store.ready;await store.callsReady;app=buildApp(store);base=await app.listen({host:'127.0.0.1',port:0});
+  store=new MysqlStore();await store.ready;await store.callsReady;await store.linksReady;app=buildApp(store);base=await app.listen({host:'127.0.0.1',port:0});
 },30000);
 afterAll(async()=>{
   socket?.disconnect();if(app)await app.close();else if(store)await store.close();
@@ -41,7 +41,7 @@ test.skipIf(!enabled)('sessão persiste no SQL, pode ser renovada e logout revog
   expect((await app.inject({method:'GET',url:'/api/v1/me',headers:{authorization:`Bearer ${legacy}`}})).statusCode).toBe(200);
   expect((await app.inject({method:'POST',url:'/api/v1/auth/logout',headers:{authorization:`Bearer ${legacy}`},payload:{portal:'company'}})).statusCode).toBe(200);
   expect((await app.inject({method:'GET',url:'/api/v1/me',headers:{authorization:`Bearer ${legacy}`}})).statusCode).toBe(401);
-  const restartedStore=new MysqlStore();await restartedStore.ready;await restartedStore.callsReady;const restartedApp=buildApp(restartedStore);
+  const restartedStore=new MysqlStore();await restartedStore.ready;await restartedStore.callsReady;await restartedStore.linksReady;const restartedApp=buildApp(restartedStore);
   expect((await restartedApp.inject({method:'GET',url:'/api/v1/me',headers:{authorization:`Bearer ${first}`}})).statusCode).toBe(200);
   await restartedApp.close();
   await store.pool.execute('UPDATE auth_sessions SET expires_at=UTC_TIMESTAMP()+INTERVAL 300 DAY WHERE id=?',[session.sessionId]);
@@ -58,4 +58,17 @@ test.skipIf(!enabled)('sessão persiste no SQL, pode ser renovada e logout revog
   const secondSession=parseSession(second,process.env.SESSION_SECRET ?? 'development-only-change-me-32-characters')!;
   await store.pool.execute('UPDATE auth_sessions SET expires_at=UTC_TIMESTAMP()-INTERVAL 1 SECOND WHERE id=?',[secondSession.sessionId]);
   expect((await app.inject({method:'GET',url:'/api/v1/me',headers:{authorization:`Bearer ${second}`}})).statusCode).toBe(401);
+},20000);
+
+test.skipIf(!enabled)('cadastro do motorista persiste no MySQL e permite login depois de reiniciar o acesso',async()=>{
+  const input={name:'Motorista de teste',phone:'+5562988887777',password:'SenhaTeste123'};
+  const registered=await app.inject({method:'POST',url:'/api/v1/auth/register-professional',payload:input});
+  expect(registered.statusCode).toBe(201);
+  const userId=registered.json().user.id;
+  const [profiles]=await store.pool.execute<any[]>('SELECT u.phone_e164 FROM users u JOIN professional_profiles p ON p.user_id=u.id WHERE u.id=?',[userId]);
+  expect(profiles).toHaveLength(1);expect(profiles[0].phone_e164).toBe(input.phone);
+  const restartedStore=new MysqlStore();await restartedStore.ready;await restartedStore.callsReady;await restartedStore.linksReady;
+  const restartedApp=buildApp(restartedStore);
+  expect((await restartedApp.inject({method:'POST',url:'/api/v1/auth/login',payload:{phone:input.phone,password:input.password}})).statusCode).toBe(200);
+  await restartedApp.close();
 },20000);
