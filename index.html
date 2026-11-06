@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>EncomendasZap - Mapas & Logística</title>
+    <meta name="description" content="Mapa em tela cheia com rastreamento de entregas, rotas em tempo real e busca inteligente da EncomendasZap." />
+    <meta property="og:title" content="EncomendasZap - Mapas & Logística" />
+    <meta property="og:description" content="Mapa em tela cheia com rastreamento de entregas, rotas em tempo real e busca inteligente da EncomendasZap." />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#001424" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EncomendasZap" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <script>
+      (function() {
+        // Intercepta WebSocket para conexões internas de HMR do Vite em ambiente de preview
+        var NativeWebSocket = window.WebSocket;
+        if (NativeWebSocket) {
+          function SafeWebSocket(url, protocols) {
+            var isViteHmr = false;
+            if (protocols === 'vite-hmr') isViteHmr = true;
+            if (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1) isViteHmr = true;
+            if (typeof url === 'string' && (url.indexOf('vite-hmr') !== -1 || url.indexOf('/@vite/') !== -1)) isViteHmr = true;
+
+            if (!isViteHmr) {
+              return new NativeWebSocket(url, protocols);
+            }
+
+            var listeners = {};
+            var self = {
+              url: String(url),
+              protocol: 'vite-hmr',
+              readyState: 0,
+              bufferedAmount: 0,
+              extensions: '',
+              binaryType: 'blob',
+              onopen: null,
+              onmessage: null,
+              onerror: null,
+              onclose: null,
+              addEventListener: function(type, listener) {
+                if (!listeners[type]) listeners[type] = [];
+                listeners[type].push(listener);
+              },
+              removeEventListener: function(type, listener) {
+                if (!listeners[type]) return;
+                var idx = listeners[type].indexOf(listener);
+                if (idx !== -1) listeners[type].splice(idx, 1);
+              },
+              dispatchEvent: function(event) {
+                var list = listeners[event.type];
+                if (list) {
+                  for (var i = 0; i < list.length; i++) {
+                    try { list[i].call(self, event); } catch (e) {}
+                  }
+                }
+                return true;
+              },
+              send: function() {},
+              close: function(code, reason) {
+                self.readyState = 3;
+                var ev = { type: 'close', wasClean: true, code: code || 1000, reason: reason || '' };
+                if (typeof self.onclose === 'function') self.onclose(ev);
+                self.dispatchEvent(ev);
+              }
+            };
+
+            setTimeout(function() {
+              self.readyState = 1;
+              var openEv = { type: 'open' };
+              if (typeof self.onopen === 'function') self.onopen(openEv);
+              self.dispatchEvent(openEv);
+
+              setTimeout(function() {
+                var msgEv = {
+                  type: 'message',
+                  data: JSON.stringify({ type: 'connected' })
+                };
+                if (typeof self.onmessage === 'function') self.onmessage(msgEv);
+                self.dispatchEvent(msgEv);
+              }, 40);
+            }, 30);
+
+            return self;
+          }
+
+          SafeWebSocket.prototype = NativeWebSocket.prototype;
+          SafeWebSocket.CONNECTING = 0;
+          SafeWebSocket.OPEN = 1;
+          SafeWebSocket.CLOSING = 2;
+          SafeWebSocket.CLOSED = 3;
+          window.WebSocket = SafeWebSocket;
+        }
+
+        function isViteHmrError(str) {
+          if (!str) return false;
+          var s = String(str).toLowerCase();
+          return s.indexOf('websocket') !== -1 || s.indexOf('[vite]') !== -1 || s.indexOf('vite-hmr') !== -1;
+        }
+
+        // Suprime erros e rejeições não tratadas de WebSocket do Vite HMR
+        window.addEventListener('error', function(event) {
+          var text = (event.message || '') + ' ' + (event.error ? (event.error.message || String(event.error)) : '') + ' ' + (event.filename || '');
+          if (isViteHmrError(text)) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var text = event.reason ? (event.reason.message || String(event.reason)) : '';
+          if (isViteHmrError(text)) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            return true;
+          }
+        }, true);
+
+        var origConsoleError = console.error;
+        var origConsoleWarn = console.warn;
+        console.error = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            var arg = arguments[i];
+            var str = arg instanceof Error ? (arg.message || String(arg)) : String(arg || '');
+            if (isViteHmrError(str)) return;
+          }
+          origConsoleError.apply(console, arguments);
+        };
+        console.warn = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            var arg = arguments[i];
+            var str = arg instanceof Error ? (arg.message || String(arg)) : String(arg || '');
+            if (isViteHmrError(str)) return;
+          }
+          origConsoleWarn.apply(console, arguments);
+        };
+      })();
+    </script>
+  </head>
+  <body class="overflow-hidden m-0 p-0 select-none bg-[#001424]" style="background-color: #001424; color-scheme: dark;">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

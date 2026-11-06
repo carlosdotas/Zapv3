@@ -1,10 +1,60 @@
 {
-  "name": "zap-platform",
+  "name": "react-example",
   "private": true,
-  "version": "0.1.0",
-  "workspaces": ["apps/*", "services/*", "packages/*"],
-  "scripts": {"dev:api":"tsx services/api/src/server.ts","start":"node services/api/dist/server.js","build":"npm run build --workspace=@zap/contracts && npm run build --workspace=@zap/api-client && npm run build --workspace=@zap/ui && npm run build --workspace=@zap/api && npm run build --workspace=@zap/admin-web && npm run build --workspace=@zap/company-web && npm run build --workspace=@zap/professional-web && npm run build --workspace=@zap/home-web && node scripts/assemble-web.mjs","build:api":"npm run build --workspace=@zap/api","build:admin":"npm run build --workspace=@zap/contracts && npm run build --workspace=@zap/api-client && npm run build --workspace=@zap/ui && npm run build --workspace=@zap/admin-web","build:company":"npm run build --workspace=@zap/contracts && npm run build --workspace=@zap/api-client && npm run build --workspace=@zap/ui && npm run build --workspace=@zap/company-web","build:professional":"npm run build --workspace=@zap/contracts && npm run build --workspace=@zap/api-client && npm run build --workspace=@zap/ui && npm run build --workspace=@zap/professional-web","build:home":"npm run build --workspace=@zap/home-web","build:mobile":"node scripts/build-mobile.mjs","sync:mobile-apks":"node scripts/sync-mobile-apks.mjs","test":"npm run test --workspaces","typecheck":"npm run typecheck --workspaces","lint":"npm run lint --workspaces"},
-  "engines": {"node": ">=20"},
-  "devDependencies": {"@types/node":"^22.10.2","tsx":"^4.19.2","typescript":"^5.7.2","vite":"^8.3.6","vitest":"^4.1.12"},
-  "overrides": {"esbuild":"0.28.1","tinypool":"2.1.2"}
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false backend/index.ts",
+    "prebuild": "node scripts/sync-image-server.mjs --check && node scripts/update-version-manifest.mjs",
+    "build": "vite build",
+    "images:sync": "node scripts/sync-image-server.mjs",
+    "images:check": "node scripts/sync-image-server.mjs --check",
+    "images:test": "node --test scripts/image-server.test.mjs",
+    "preview": "vite preview --port 3000 --host 0.0.0.0",
+    "start": "node server.js",
+    "clean": "rm -rf dist",
+    "db:push": "prisma db push --schema backend/prisma/schema.prisma",
+    "db:generate": "prisma generate --schema backend/prisma/schema.prisma",
+    "db:import": "tsx backend/importSql.ts",
+    "db:import-users": "tsx backend/importUsers.ts",
+    "db:link-clients": "tsx backend/linkOrderClients.ts",
+    "db:fix-receivables": "tsx backend/fixReceivables.ts",
+    "db:studio": "prisma studio --schema backend/prisma/schema.prisma",
+    "postinstall": "prisma generate --schema backend/prisma/schema.prisma",
+    "test": "node --import tsx --test \"backend/**/*.test.ts\" \"src/**/*.test.ts\" \"scripts/*.test.mjs\"",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "@types/leaflet": "^1.9.22",
+    "@types/ws": "^8.18.2",
+    "@vitejs/plugin-react": "^6.1.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.546.0",
+    "postcss": "^8.4.49",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "tsx": "^4.21.0",
+    "vite": "^8.3.0",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.21",
+    "prisma": "^6.19.3",
+    "sharp": "^0.35.5",
+    "tailwindcss": "3.4.17",
+    "typescript": "^7.0.2",
+    "vite-plugin-pwa": "^2.0.0"
+  },
+  "packageManager": "npm@11.9.0",
+  "engines": {
+    "node": ">=22.12.0"
+  }
 }

@@ -1,0 +1,4 @@
+export const MAX_OFFLINE_MS = 30 * 60 * 1000;
+export const TRACKING_HISTORY_INTERVAL_MS = 30 * 1000;
+export const URGENT_OFFER_DURATION_MS = 30 * 1000;
+

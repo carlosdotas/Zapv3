@@ -1,1 +1,28 @@
-{"files":[],"references":[{"path":"./services/api"},{"path":"./packages/contracts"},{"path":"./packages/api-client"},{"path":"./packages/ui"},{"path":"./apps/admin-web"},{"path":"./apps/company-web"},{"path":"./apps/professional-web"},{"path":"./apps/home-web"}]}
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "types": ["vite/client", "vite-plugin-pwa/client"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}
