@@ -21,7 +21,7 @@ function ContactRow({ label, name, phone }: { label: string; name: string; phone
   const icon = <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.4 2.7a2 2 0 0 1-.6 1.7L7.6 9.4a16 16 0 0 0 7 7l1.3-1.3a2 2 0 0 1 1.7-.6l2.7.4a2 2 0 0 1 1.7 2Z"/></svg>;
   return <div className="driver-place-sheet__company">
     <span className="driver-place-sheet__company-avatar"><DriverIcon name={label === 'Cliente' ? 'pin' : 'package'} size={19}/></span>
-    <span className="driver-place-sheet__company-info"><small>{label}</small><strong>{name}</strong></span>
+    <span className="driver-place-sheet__company-info"><small>{label}</small><strong>{name}</strong>{!digits && <small>(00) 00000-0000 · Exemplo</small>}</span>
     {digits.length >= 12 ? <a className="driver-place-sheet__whatsapp" href={`https://wa.me/${digits}`} target="_blank" rel="noreferrer" aria-label={`Abrir WhatsApp: ${label}`}>{icon}<span>WhatsApp</span></a> : <button type="button" className="driver-place-sheet__whatsapp" disabled aria-label={`WhatsApp de ${label} indisponível: número não informado`}>{icon}<span>WhatsApp</span></button>}
   </div>;
 }
