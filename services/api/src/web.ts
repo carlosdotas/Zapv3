@@ -86,6 +86,7 @@ async function sendFrontend(target: FrontendTarget, pathname: string, reply: Fas
   if (!candidate) return reply.code(404).send({ message: `Arquivo GET:${pathname} não encontrado`, error: 'Não encontrado', statusCode: 404 });
 
   const contentType = contentTypes[extname(candidate).toLowerCase()] ?? 'application/octet-stream';
+  if (target.name === 'home' && /^\/downloads\/(motorista|transportadora)\.json$/.test(requested)) reply.header('Cache-Control', 'no-cache');
   if (extname(candidate).toLowerCase() === '.html') {
     reply.header('Content-Security-Policy', "frame-src 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
   }

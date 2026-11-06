@@ -1,5 +1,11 @@
 # Operações
 
+## Atualizações dos APKs
+
+Motorista 0.9.0 (código 9) e Transportadora 0.6.0 (código 6) verificam `/downloads/motorista.json` e `/downloads/transportadora.json` em `https://dotas.site` ao abrir. Versões anteriores precisam desta primeira atualização manual. `npm run build:mobile` compila, valida a assinatura contra os downloads existentes e exige aumento de `versionCode` se o binário mudou; gera automaticamente manifestos com pacote, versão, tamanho, SHA-256 e URL. Configure `ANDROID_HOME` e preserve a chave privada fora do Git. APKs e manifestos devem ser publicados juntos pelo build normal do site; preparar os arquivos não executa deploy.
+
+O download exige confirmação e o APK é validado por pacote, versão, hash e assinatura instalada antes de usar FileProvider e o instalador do Android. Sem internet a verificação não impede o uso. A instalação pode exigir a autorização “Instalar apps desconhecidos” e sempre requer confirmação. Dados e login são preservados por uma atualização compatível; o Android pode encerrar o processo e o serviço durante a substituição: reabra o app e confira o estado de serviço. Validação física de download, recusa de permissões, instalação e GPS/chamadas após atualizar permanece necessária.
+
 Executar `npm run typecheck`, `npm test` e `npm run build`. Para a publicação unificada na Hostinger, use a raiz `./`, o build `npm run build`, a saída `services/api/dist` e a entrada `server.js`; conecte os domínios ao mesmo Web App Node. O processo entrega `dotas.site` como home, `empresa.dotas.site`, `profissional.dotas.site` e `admin.dotas.site` como portais, e `api.dotas.site` para a API. Backup/restauração, observabilidade, push e GPS real permanecem checklist pré-produção.
 
 O mapa da tela de serviço do motorista usa blocos públicos do OpenStreetMap, sem chave. Requer internet, exibe os créditos no mapa e depende da disponibilidade do serviço público; carrega apenas a região visível. Até o GPS chegar, mostra uma visão geral do Brasil sem inventar uma posição. Arrastar o mapa pausa o acompanhamento, e o botão de localização volta a centralizá-lo.
@@ -49,4 +55,4 @@ As opções de proxy/CA acima são específicas deste ambiente gerenciado. Prese
 
 Os APKs 0.2.0-debug (versionCode 2, minSdk 26, targetSdk 35) desta sessão têm assinatura validada, porém o certificado debug difere do APK anteriormente versionado. A chave anterior não está disponível neste checkout. A atualização sobre a instalação anterior exige a chave original; para testes, desinstale o APK anterior e instale o novo. Preserve a nova chave privada fora do Git para builds futuros. Não publique uma versão release sem configurar a assinatura oficial.
 
-O download motorista 0.8.0-debug usa a mesma chave das versões 0.3.0 a 0.7.0 e pode ser instalado sobre elas; a transportadora permanece na versão 0.5.0. A chave difere da versão 0.2.0: dispositivos que ainda usarem 0.2.0 precisam desinstalá-la antes da instalação, o que pode apagar dados locais. Preserve a chave atual para futuras atualizações; não publique uma versão release sem configurar a assinatura oficial.
+Os downloads Motorista 0.9.0-debug e Transportadora 0.6.0-debug mantêm as respectivas assinaturas dos downloads anteriores. A chave do motorista difere da versão 0.2.0: dispositivos que ainda usarem 0.2.0 precisam desinstalá-la antes da instalação, o que pode apagar dados locais. Preserve a chave atual para futuras atualizações; não publique uma versão release sem configurar a assinatura oficial.

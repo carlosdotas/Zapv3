@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
 
     private String dutyToken;
     private WebView webView;
+    private AppUpdater updater;
     private boolean startLocationAfterPermission = false;
     private long lastBackPressedAt = 0L;
 
@@ -47,6 +48,7 @@ public class MainActivity extends Activity {
         boolean requestingNotifications = requestNotificationPermission();
         if (!requestingNotifications && "motorista".equals(BuildConfig.FLAVOR)) requestDriverLocationPermissionAtStartup();
         loadRemoteApplication();
+        updater = new AppUpdater(this);
     }
 
     private void configureSystemBars() {
@@ -267,6 +269,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == AppUpdater.INSTALL_PERMISSION_CODE && updater != null) { updater.permissionResult(); return; }
         if (requestCode == GPS_SETTINGS_CODE && dutyToken != null) {
             LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
             showToast(manager != null && manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
@@ -340,7 +343,18 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (updater != null) updater.close();
         if (webView != null) { webView.stopLoading(); webView.destroy(); }
         super.onDestroy();
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        if (updater != null) updater.check();
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused && updater != null) updater.offer();
     }
 }

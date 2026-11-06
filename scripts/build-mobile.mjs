@@ -14,4 +14,4 @@ const exitCode = await new Promise((resolve, reject) => {
 
 if (exitCode !== 0) process.exit(exitCode);
 await syncMobileApks();
-console.log('APKs compilados e publicados na home pública.');
+console.log('APKs e manifestos preparados na pasta pública local; deploy não executado.');

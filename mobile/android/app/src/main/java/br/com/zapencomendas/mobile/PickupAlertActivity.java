@@ -77,8 +77,8 @@ public final class PickupAlertActivity extends Activity {
         layout.addView(eyebrow); layout.addView(title); layout.addView(countdown); layout.addView(detailsScroll, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1)); layout.addView(message); layout.addView(actions);
         setContentView(layout);
         IntentFilter filter = new IntentFilter(STATUS_ACTION);
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        else registerReceiver(statusReceiver, filter);
+        androidx.core.content.ContextCompat.registerReceiver(this, statusReceiver, filter,
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
         handler.post(tick);
     }
 
