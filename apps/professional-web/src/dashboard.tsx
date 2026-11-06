@@ -34,7 +34,8 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
 
   useEffect(()=>{
     if(!native)return;
-    const update=()=>{try{const running=native.isLocationRunning();setDuty(running);const timestamp=native.getLocationUpdatedAt?.() ?? 0;const latitude=native.getLatitude?.();const longitude=native.getLongitude?.();if(running && timestamp>0 && Date.now()-timestamp<120000 && typeof latitude==='number' && typeof longitude==='number' && Number.isFinite(latitude) && Number.isFinite(longitude))setLocation({latitude,longitude,updatedAt:timestamp});else setLocation(null);}catch{setLocation(null);}};
+    let wasRunning=false;
+    const update=()=>{try{const running=native.isLocationRunning();setDuty(running);if(running && !wasRunning)setMessage('');wasRunning=running;const timestamp=native.getLocationUpdatedAt?.() ?? 0;const latitude=native.getLatitude?.();const longitude=native.getLongitude?.();if(running && timestamp>0 && Date.now()-timestamp<120000 && typeof latitude==='number' && typeof longitude==='number' && Number.isFinite(latitude) && Number.isFinite(longitude))setLocation({latitude,longitude,updatedAt:timestamp});else setLocation(null);}catch{setLocation(null);}};
     update();const timer=window.setInterval(update,1500);return()=>window.clearInterval(timer);
   },[native]);
 
@@ -59,7 +60,7 @@ export function Dashboard({ apiUrl, token, userId, userName, onLogout }: { apiUr
 
   function changeDuty(on:boolean) {
     if(on)enableSound();
-    if(native){if(on)native.startDuty(token);else native.stopLocation();setDuty(on);setMessage(on?'Confira a notificação de serviço e as permissões do Android.':'Fora de serviço.');return;}
+    if(native){if(on)native.startDuty(token);else{native.stopLocation();setDuty(false);}setMessage(on?'Conclua as permissões do Android para entrar em serviço.':'Fora de serviço.');return;}
     if(!on){setDuty(false);setLocation(null);}
     if(!socket?.connected){setMessage('Sem conexão. Aguarde a reconexão para alterar seu serviço.');return;}
     socket.emit('duty:set',{onDuty:on},(result:{error?:string})=>{if(result.error)setMessage(result.error);else{setDuty(on);setMessage('');}});

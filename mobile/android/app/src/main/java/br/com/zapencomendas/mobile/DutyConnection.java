@@ -24,7 +24,7 @@ final class DutyConnection {
     private volatile Location latest;
     private volatile boolean stopping;
     private long lastSent;
-    private static final String CHANNEL = "zap_pickup_calls_v2";
+    static final String CHANNEL = "zap_pickup_calls_v2";
     private final Runnable heartbeat = new Runnable() {
         public void run() {
             if (stopping) return;
@@ -38,15 +38,7 @@ final class DutyConnection {
         IO.Options options = IO.Options.builder().setAuth(Collections.singletonMap("token", token))
             .setReconnection(true).setReconnectionDelay(1000).setReconnectionDelayMax(15000).build();
         socket = IO.socket(URI.create(BuildConfig.API_URL), options);
-        NotificationManager manager = service.getSystemService(NotificationManager.class);
-        NotificationChannel previous = manager.getNotificationChannel("zap_pickup_calls_v1");
-        NotificationChannel channel = new NotificationChannel(CHANNEL, "Chamadas de coleta", previous == null ? NotificationManager.IMPORTANCE_HIGH : previous.getImportance());
-        if (previous == null) channel.setVibrationPattern(new long[]{0,400,200,400});
-        else if (previous.getVibrationPattern() != null) channel.setVibrationPattern(previous.getVibrationPattern());
-        channel.enableVibration(previous == null || previous.shouldVibrate());
-        android.net.Uri sound = android.net.Uri.parse("android.resource://" + service.getPackageName() + "/raw/chamada_zap");
-        channel.setSound(previous != null && previous.getSound() == null ? null : sound, new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
-        manager.createNotificationChannel(channel);
+        ensureCallChannel(service);
         socket.on(Socket.EVENT_CONNECT, args -> {
             if (stopping) return;
             socket.emit("duty:set", json("onDuty",true), (Ack) result -> {
@@ -63,6 +55,17 @@ final class DutyConnection {
         socket.on(Socket.EVENT_CONNECT_ERROR, args -> {if(args.length>0 && String.valueOf(args[0]).contains("Sessão inválida.")) handler.post(service::stopSelf);});
         socket.connect();
         handler.post(heartbeat);
+    }
+    static void ensureCallChannel(android.content.Context context) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        NotificationChannel previous = manager.getNotificationChannel("zap_pickup_calls_v1");
+        NotificationChannel channel = new NotificationChannel(CHANNEL, "Chamadas de coleta", previous == null ? NotificationManager.IMPORTANCE_HIGH : previous.getImportance());
+        if (previous == null) channel.setVibrationPattern(new long[]{0,400,200,400});
+        else if (previous.getVibrationPattern() != null) channel.setVibrationPattern(previous.getVibrationPattern());
+        channel.enableVibration(previous == null || previous.shouldVibrate());
+        android.net.Uri sound = android.net.Uri.parse("android.resource://" + context.getPackageName() + "/raw/chamada_zap");
+        channel.setSound(previous != null && previous.getSound() == null ? null : sound, new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
+        manager.createNotificationChannel(channel);
     }
     private JSONObject object(Object[] args) { return args.length>0 && args[0] instanceof JSONObject ? (JSONObject)args[0] : new JSONObject(); }
     private JSONObject json(String key,Object value) { JSONObject obj=new JSONObject();try {obj.put(key,value);}catch(JSONException ignored){}return obj; }
