@@ -44,8 +44,7 @@ public class MainActivity extends Activity {
         configureSystemBars();
         configureWebView();
         driverPermissions = new DriverPermissions(this);
-        boolean requestingNotifications = requestNotificationPermission();
-        if (!requestingNotifications && "motorista".equals(BuildConfig.FLAVOR)) requestDriverLocationPermissionAtStartup();
+        if (!"motorista".equals(BuildConfig.FLAVOR)) requestNotificationPermission();
         loadRemoteApplication();
         updater = new AppUpdater(this);
     }
@@ -320,6 +319,16 @@ public class MainActivity extends Activity {
     @Override protected void onStart() {
         super.onStart();
         if (updater != null) updater.check();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (driverPermissions != null) driverPermissions.onResume();
+    }
+
+    @Override protected void onPause() {
+        if (driverPermissions != null) driverPermissions.onPause();
+        super.onPause();
     }
 
     @Override public void onWindowFocusChanged(boolean focused) {

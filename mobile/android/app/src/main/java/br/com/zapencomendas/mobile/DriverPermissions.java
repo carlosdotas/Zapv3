@@ -21,9 +21,21 @@ final class DriverPermissions {
     private boolean waiting;
     private BooleanSupplier settingsGranted;
     private AlertDialog dialog;
+    private boolean resumed;
 
     DriverPermissions(Activity activity) { this.activity = activity; }
-    void start(Runnable action) { if (ready == null) { ready = action; advance(); } }
+    void start(Runnable action) {
+        if (ready != null) return;
+        ready = action;
+        waiting = true;
+        dialog = new AlertDialog.Builder(activity).setTitle("Iniciar serviço")
+            .setMessage("Vamos conferir o GPS preciso, as notificações e as chamadas em tela cheia. O Android solicitará apenas as autorizações que ainda faltam. A localização será acompanhada enquanto você estiver em serviço, inclusive com a tela bloqueada.")
+            .setPositiveButton("Conferir e continuar", (d,w) -> { waiting = false; resume(); })
+            .setNegativeButton("Agora não", (d,w) -> cancel()).setOnCancelListener(d -> cancel()).show();
+    }
+    void onResume() { resumed = true; resume(); }
+    void onPause() { resumed = false; }
+    private void resume() { activity.getWindow().getDecorView().post(this::advance); }
     void cancel() { ready = null; waiting = false; if (dialog != null) dialog.dismiss(); }
     private boolean granted(String permission) { return activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED; }
     private boolean gps() {
@@ -34,7 +46,7 @@ final class DriverPermissions {
     private void denied() { cancel(); Toast.makeText(activity, "Serviço não ativado. Autorize as permissões solicitadas e tente novamente.", Toast.LENGTH_LONG).show(); }
 
     void advance() {
-        if (ready == null || waiting || !activity.hasWindowFocus() || activity.isFinishing()) return;
+        if (ready == null || waiting || !resumed || activity.isFinishing()) return;
         if (Build.VERSION.SDK_INT >= 33 && !granted(Manifest.permission.POST_NOTIFICATIONS)) {
             request(Manifest.permission.POST_NOTIFICATIONS, NOTIFICATIONS, "notifications_requested", "Permita as notificações para receber chamadas."); return;
         }
@@ -87,13 +99,13 @@ final class DriverPermissions {
     boolean permissionResult(int code) {
         if (code != NOTIFICATIONS && code != LOCATION) return false;
         waiting = false;
-        if (ready != null) { if (code == LOCATION ? precise() : granted(Manifest.permission.POST_NOTIFICATIONS)) advance(); else denied(); }
+        if (ready != null) { if (code == LOCATION ? precise() : granted(Manifest.permission.POST_NOTIFICATIONS)) resume(); else denied(); }
         return true;
     }
     boolean settingsResult(int code) {
         if (code != SETTINGS) return false;
         waiting = false;
-        if (ready != null) { if (settingsGranted != null && settingsGranted.getAsBoolean()) advance(); else denied(); }
+        if (ready != null) { if (settingsGranted != null && settingsGranted.getAsBoolean()) resume(); else denied(); }
         return true;
     }
 }
