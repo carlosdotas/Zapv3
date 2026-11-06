@@ -54,7 +54,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
     if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pinch.current && pointers.current.size >= 2) {
       const [a, b] = [...pointers.current.values()];
-      const delta = Math.round(Math.log2(Math.hypot(a.x - b.x, a.y - b.y) / pinch.current.distance));
+      const delta = Math.log2(Math.hypot(a.x - b.x, a.y - b.y) / pinch.current.distance);
       setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinch.current.zoom + delta)));
       return;
     }
@@ -81,18 +81,21 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
     setZoom(15);
   }
 
-  const marker = validMapPoint(location) ? projectMapPoint(location, zoom) : null;
-  const projectedCenter = projectMapPoint(center, zoom);
-  const worldSize = 256 * 2 ** zoom;
+  const tileZoom = Math.floor(zoom);
+  const tileScale = 2 ** (zoom - tileZoom);
+  const marker = validMapPoint(location) ? projectMapPoint(location, tileZoom) : null;
+  const projectedCenter = projectMapPoint(center, tileZoom);
+  const worldSize = 256 * 2 ** tileZoom;
   const markerX = marker ? ((marker.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2 : 0;
   const markerY = marker ? marker.y - projectedCenter.y : 0;
 
   return <div ref={container} className="driver-map" role="region" aria-label="Mapa da região">
     <div className="driver-map__tiles" onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
-      {visibleMapTiles(center, zoom, size.width, size.height).map(tile => <img
-        key={`${zoom}/${tile.x}/${tile.y}/${retry}`}
+      <div className="driver-map__scale" style={{ transform: `scale(${tileScale})` }}>
+      {visibleMapTiles(center, tileZoom, size.width, size.height).map(tile => <img
+        key={`${tileZoom}/${tile.x}/${tile.y}/${retry}`}
         className="driver-map__tile"
-        src={openStreetMapProvider.tileUrl(zoom, tile.x, tile.y)}
+        src={openStreetMapProvider.tileUrl(tileZoom, tile.x, tile.y)}
         alt=""
         draggable={false}
         referrerPolicy="strict-origin-when-cross-origin"
@@ -100,6 +103,7 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
         onError={() => setTileError(true)}
       />)}
       {marker && <span className="driver-map__marker" aria-label="Sua localização no mapa" style={{ left: size.width / 2 + markerX, top: size.height / 2 + markerY }} />}
+      </div>
     </div>
     <div className="driver-map__controls" aria-label="Controles do mapa">
       <button type="button" onClick={recenter} disabled={!validMapPoint(location)} aria-label="Centralizar na minha localização" title="Centralizar na minha localização"><DriverIcon name="location" size={22}/></button>
