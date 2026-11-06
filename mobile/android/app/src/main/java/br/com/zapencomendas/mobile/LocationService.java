@@ -77,10 +77,10 @@ public class LocationService extends Service implements LocationListener {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (locationManager == null) return;
         try {
-            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            if (locationManager.getAllProviders().contains(LocationManager.GPS_PROVIDER)) {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 10000L, 10f, this, Looper.getMainLooper());
             }
-            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+            if (locationManager.getAllProviders().contains(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 30000L, 25f, this, Looper.getMainLooper());
             }
         } catch (SecurityException ignored) {

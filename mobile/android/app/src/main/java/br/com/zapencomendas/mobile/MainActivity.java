@@ -2,6 +2,7 @@ package br.com.zapencomendas.mobile;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -9,6 +10,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -26,7 +28,7 @@ import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final int LOCATION_PERMISSION_CODE = 4101;
-    private static final int BACKGROUND_LOCATION_CODE = 4102;
+    private static final int GPS_SETTINGS_CODE = 4102;
     private static final int NOTIFICATION_PERMISSION_CODE = 4103;
     private static final int CONTACT_PICKER_CODE = 4104;
     private static final int CONTACT_PERMISSION_CODE = 4105;
@@ -42,7 +44,8 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         configureSystemBars();
         configureWebView();
-        requestNotificationPermission();
+        boolean requestingNotifications = requestNotificationPermission();
+        if (!requestingNotifications && "motorista".equals(BuildConfig.FLAVOR)) requestDriverLocationPermissionAtStartup();
         loadRemoteApplication();
     }
 
@@ -127,8 +130,7 @@ public class MainActivity extends Activity {
 
     public void startDuty(String token) {
         if (!"motorista".equals(BuildConfig.FLAVOR) || token == null || token.length() > 2048) return;
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestNotificationPermission();
+        if (requestNotificationPermission()) {
             showToast("Autorize as notificações e toque novamente em Entrar em serviço.");
             return;
         }
@@ -153,15 +155,14 @@ public class MainActivity extends Activity {
 
     public void requestLocationFromWeb() {
         if (dutyToken == null) { showToast("Use Entrar em serviço para ativar a localização."); return; }
-        boolean granted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-            || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        if (!granted) {
+        boolean precise = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (!precise) {
             startLocationAfterPermission = true;
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_CODE);
             return;
         }
         startLocationService();
-        showToast("Localização ativada para a entrega.");
+        showToast("GPS preciso ativado durante o serviço.");
     }
 
     public void stopLocationFromWeb() {
@@ -176,7 +177,34 @@ public class MainActivity extends Activity {
         Intent serviceIntent = new Intent(this, LocationService.class).putExtra("token", dutyToken);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent);
         else startService(serviceIntent);
+        LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (manager != null && !manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) showGpsSettingsPrompt();
+    }
 
+    private void requestDriverLocationPermissionAtStartup() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) return;
+        android.content.SharedPreferences preferences = getPreferences(MODE_PRIVATE);
+        if (preferences.getBoolean("driver_location_prompt_shown", false)) return;
+        preferences.edit().putBoolean("driver_location_prompt_shown", true).apply();
+        new AlertDialog.Builder(this)
+            .setTitle("Permitir localização precisa")
+            .setMessage("A localização ajuda a mostrar sua posição e a distância das chamadas. O GPS só é acompanhado quando você entra em serviço.")
+            .setPositiveButton("Continuar", (dialog, which) -> requestPermissions(
+                new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_CODE))
+            .setNegativeButton("Agora não", null)
+            .show();
+    }
+
+    private void showGpsSettingsPrompt() {
+        new AlertDialog.Builder(this)
+            .setTitle("Ative o GPS do aparelho")
+            .setMessage("Para compartilhar sua posição com precisão durante o serviço, ative a localização do aparelho.")
+            .setPositiveButton("Abrir configurações", (dialog, which) -> {
+                try { startActivityForResult(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS), GPS_SETTINGS_CODE); }
+                catch (Exception ignored) { showToast("Ative a localização nas configurações do aparelho."); }
+            })
+            .setNegativeButton("Continuar sem GPS", null)
+            .show();
     }
 
     public void showLocalNotification(String title, String message) {
@@ -239,6 +267,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == GPS_SETTINGS_CODE && dutyToken != null) {
+            LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+            showToast(manager != null && manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                ? "GPS ativado durante o serviço."
+                : "O GPS continua desligado; a posição pode ficar imprecisa.");
+            return;
+        }
         if (requestCode != CONTACT_PICKER_CODE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri contactUri = data.getData();
         String[] projection = { ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER };
@@ -257,21 +292,32 @@ public class MainActivity extends Activity {
         webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('zapContactSelected',{detail:" + json + "}));", null);
     }
 
-    private void requestNotificationPermission() {
+    private boolean requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_CODE);
+            return true;
         }
+        return false;
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_CODE && startLocationAfterPermission && dutyToken != null
-            && (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)) {
-            startLocationAfterPermission = false;
-            startLocationService();
-            showToast("Localização ativada para a entrega.");
+        if (requestCode == NOTIFICATION_PERMISSION_CODE && "motorista".equals(BuildConfig.FLAVOR)) {
+            requestDriverLocationPermissionAtStartup();
+        }
+        if (requestCode == LOCATION_PERMISSION_CODE) {
+            boolean precise = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean approximate = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            if (startLocationAfterPermission && dutyToken != null && (precise || approximate)) {
+                startLocationAfterPermission = false;
+                startLocationService();
+                showToast(precise ? "GPS preciso ativado durante o serviço." : "Localização aproximada ativada. Permita a localização precisa para melhorar as chamadas.");
+            } else if (precise) {
+                showToast("GPS preciso autorizado. A localização será usada durante o serviço.");
+            } else if (approximate) {
+                showToast("Localização aproximada autorizada. Permita a localização precisa para melhorar as chamadas.");
+            }
         }
         if (requestCode == CONTACT_PERMISSION_CODE
             && checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
