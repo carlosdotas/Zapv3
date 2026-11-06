@@ -50,3 +50,18 @@
 .driver-map__controls button { border-radius: 50%; background: #fff; color: #1a73e8; box-shadow: 0 2px 7px #0f172a30; }
 .driver-map__scale { position: absolute; inset: 0; transform-origin: center; }
 .driver-map__controls { top: auto; bottom: 110px; }
+.driver-call-marker { position: absolute; z-index: 2; display: flex; width: 204px; flex-direction: column; align-items: center; transform: translate(-50%,-100%); animation: driver-call-float 1.8s ease-in-out infinite; pointer-events: none; }
+.driver-call-card { width: 100%; padding: 8px 10px; border: 2px solid #dc2626; border-radius: 13px; background: #fff; box-shadow: 0 4px 12px #0f172a40; }
+.driver-call-company { display: flex; align-items: center; gap: 7px; color: #334155; font-size: 11px; }
+.driver-call-avatar { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #fff1f2; color: #dc2626; }
+.driver-call-place { display: block; margin: 5px 0 7px; overflow: hidden; color: #0f172a; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.driver-call-details { display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 6px; color: #475569; font-size: 12px; }
+.driver-call-details b { color: #0f172a; }
+.driver-call-box { position: relative; width: 42px; height: 42px; margin-top: 6px; }
+.driver-call-box::before { position: absolute; inset: 2px; border-radius: 10px; background: #ef4444; content: ''; animation: driver-call-pulse 1.8s ease-out infinite; }
+.driver-call-box svg { position: relative; width: 100%; height: 100%; filter: drop-shadow(0 3px 4px #7f1d1d8c); animation: driver-call-wiggle 2.4s ease-in-out infinite; }
+.driver-call-arrow { width: 19px; height: 14px; margin-top: 2px; filter: drop-shadow(0 3px 3px #0006); animation: driver-call-bounce .9s ease-in-out infinite; }
+@keyframes driver-call-bounce { 0%,100% { transform: translateY(-3px); } 50% { transform: translateY(3px); } }
+@keyframes driver-call-pulse { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.4); opacity: 0; } }
+@keyframes driver-call-wiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+@keyframes driver-call-float { 0%,100% { margin-top: 0; } 50% { margin-top: -4px; } }

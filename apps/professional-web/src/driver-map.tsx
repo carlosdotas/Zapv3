@@ -5,6 +5,11 @@ import { openStreetMapProvider, panMapPoint, projectMapPoint, validMapPoint, vis
 const INITIAL_CENTER: MapPoint = { latitude: -15.78, longitude: -47.93 };
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
+const DEMO_CALLS = [
+  { id: 'centro', place: 'Setor Central', km: '5 km', price: 'R$ 25,99', x: 0.32, y: 0.34 },
+  { id: 'jundiai', place: 'Jundiaí', km: '8 km', price: 'R$ 32,50', x: 0.68, y: 0.59 },
+  { id: 'jaiara', place: 'Vila Jaiara', km: '12 km', price: 'R$ 41,90', x: 0.50, y: 0.84 },
+];
 
 export function DriverMap({ location }: { location: MapPoint | null }) {
   const container = useRef<HTMLDivElement>(null);
@@ -103,6 +108,12 @@ export function DriverMap({ location }: { location: MapPoint | null }) {
         onError={() => setTileError(true)}
       />)}
       {marker && <span className="driver-map__marker" aria-label="Sua localização no mapa" style={{ left: size.width / 2 + markerX, top: size.height / 2 + markerY }} />}
+      {DEMO_CALLS.map(call => {
+        return <div key={call.id} className="driver-call-marker" style={{ left: size.width * call.x, top: size.height * call.y }} aria-label={`Capital Encomendas, ${call.place}, ${call.km}, ${call.price}`}>
+          <div className="driver-call-card"><div className="driver-call-company"><span className="driver-call-avatar"><DriverIcon name="package" size={17}/></span><strong>Capital Encomendas</strong></div><strong className="driver-call-place">{call.place}</strong><div className="driver-call-details"><span>{call.km}</span><b>{call.price}</b></div></div>
+          <div className="driver-call-box"><svg viewBox="0 0 64 62" aria-hidden="true"><path d="M32 3 59 16v28L32 58 5 44V16Z" fill="#dc2626" stroke="white" strokeWidth="3" strokeLinejoin="round"/><path d="m5 16 27 13 27-13M32 29v29" fill="none" stroke="white" strokeWidth="2"/><path d="m18 9.5 27 13" stroke="#fecaca" strokeWidth="3.5" strokeLinecap="round"/></svg></div><svg className="driver-call-arrow" viewBox="0 0 34 26" aria-hidden="true"><path d="M4 3 17 22 30 3" fill="none" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 3 17 22 30 3" fill="none" stroke="#dc2626" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>;
+      })}
       </div>
     </div>
     <div className="driver-map__controls" aria-label="Controles do mapa">
