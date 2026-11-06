@@ -22,6 +22,8 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const followLocation = useRef(true);
+  const mapTap = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
+  const sheetSwipe = useRef<{ id: number; x: number; y: number } | null>(null);
   const [center, setCenter] = useState<MapPoint>(validMapPoint(location) ? location : INITIAL_CENTER);
   const [zoom, setZoom] = useState(14);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -87,6 +89,10 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
     if ((event.target as HTMLElement).closest('button,a,[role="button"]')) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (placeOpen) {
+      if (pointers.current.size === 1) mapTap.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+      else if (mapTap.current) mapTap.current.moved = true;
+    }
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       pinch.current = { distance: Math.hypot(a.x - b.x, a.y - b.y), zoom };
@@ -99,6 +105,8 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
   }
 
   function moveDrag(event: PointerEvent<HTMLDivElement>) {
+    const tap = mapTap.current;
+    if (tap?.id === event.pointerId && Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 8) tap.moved = true;
     if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pinch.current && pointers.current.size >= 2) {
       const [a, b] = [...pointers.current.values()];
@@ -115,6 +123,26 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
     pointers.current.delete(event.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
     if (drag.current?.id === event.pointerId) drag.current = null;
+    const tap = mapTap.current;
+    if (tap?.id === event.pointerId) {
+      if (placeOpen && !tap.moved) setPlaceOpen(false);
+      mapTap.current = null;
+    }
+  }
+
+  function beginSheetSwipe(event: PointerEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest('button,a,[role="button"]')) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    sheetSwipe.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  }
+
+  function endSheetSwipe(event: PointerEvent<HTMLElement>) {
+    const swipe = sheetSwipe.current;
+    if (!swipe || swipe.id !== event.pointerId) return;
+    const deltaX = event.clientX - swipe.x;
+    const deltaY = event.clientY - swipe.y;
+    if (deltaY > 72 && deltaY > Math.abs(deltaX) * 1.2) setPlaceOpen(false);
+    sheetSwipe.current = null;
   }
 
   function changeZoom(amount: number) {
@@ -158,7 +186,7 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
         const point = projectMapPoint(DEMO_PLACE, tileZoom);
         const x = ((point.x - projectedCenter.x + worldSize / 2) % worldSize + worldSize) % worldSize - worldSize / 2;
         const y = point.y - projectedCenter.y;
-        return <button type="button" className="driver-call-marker" style={{ left: size.width / 2 + x * tileScale, top: size.height / 2 + y * tileScale }} aria-label={`Ver detalhes de ${DEMO_PLACE.name} em ${DEMO_PLACE.place}`} onClick={() => setPlaceOpen(true)}>
+        return <button type="button" className="driver-call-marker" style={{ left: size.width / 2 + x * tileScale, top: size.height / 2 + y * tileScale }} aria-label={`Ver detalhes de ${DEMO_PLACE.name} em ${DEMO_PLACE.place}`} onClick={() => setPlaceOpen(open => !open)}>
           <span className="driver-call-place-label">{DEMO_PLACE.place}</span>
           <span className="driver-call-box"><svg viewBox="0 0 64 62" aria-hidden="true"><path d="M32 3 59 16v28L32 58 5 44V16Z" fill="#ff5e00" stroke="white" strokeWidth="3" strokeLinejoin="round"/><path d="m5 16 27 13 27-13M32 29v29" fill="none" stroke="white" strokeWidth="2"/><path d="m18 9.5 27 13" stroke="#ffddb9" strokeWidth="3.5" strokeLinecap="round"/></svg></span>
           <svg className="driver-call-arrow" viewBox="0 0 34 26" aria-hidden="true"><path d="M4 3 17 22 30 3" fill="none" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 3 17 22 30 3" fill="none" stroke="#0b5187" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -168,8 +196,8 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
     <div className="driver-map__controls" aria-label="Controles do mapa">
       <button type="button" onClick={recenter} disabled={!validMapPoint(location)} aria-label="Centralizar na minha localização" title="Centralizar na minha localização"><DriverIcon name="location" size={22}/></button>
     </div>
-    {placeOpen && createPortal(<div className="driver-place-sheet-backdrop" onClick={() => setPlaceOpen(false)}>
-      <section className="driver-place-sheet" role="dialog" aria-modal="true" aria-label={`Detalhes de ${DEMO_PLACE.name}`} onClick={event => event.stopPropagation()}>
+    {placeOpen && createPortal(<div className="driver-place-sheet-backdrop">
+      <section className="driver-place-sheet" role="dialog" aria-modal="false" aria-label={`Detalhes de ${DEMO_PLACE.name}`} onPointerDown={beginSheetSwipe} onPointerUp={endSheetSwipe} onPointerCancel={() => { sheetSwipe.current = null; }}>
         <div className="driver-place-sheet__handle" />
         <button type="button" className="driver-place-sheet__close" onClick={() => setPlaceOpen(false)} aria-label="Fechar detalhes">×</button>
         <div className="driver-place-sheet__photo"><DriverIcon name="package" size={30}/><span>Foto</span></div>
