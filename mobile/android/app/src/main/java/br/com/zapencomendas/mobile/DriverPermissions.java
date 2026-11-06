@@ -15,7 +15,7 @@ import java.util.function.BooleanSupplier;
 
 /** Permission wizard started only by the visible Entrar em serviço action. */
 final class DriverPermissions {
-    private static final int NOTIFICATIONS = 4401, LOCATION = 4402, SETTINGS = 4403;
+    private static final int NOTIFICATIONS = 4401, LOCATION = 4402, SETTINGS = 4403, BACKGROUND_LOCATION = 4404;
     private final Activity activity;
     private Runnable ready;
     private boolean waiting;
@@ -29,7 +29,7 @@ final class DriverPermissions {
         ready = action;
         waiting = true;
         dialog = new AlertDialog.Builder(activity).setTitle("Iniciar serviço")
-            .setMessage("Vamos conferir o GPS preciso, as notificações e as chamadas em tela cheia. O Android solicitará apenas as autorizações que ainda faltam. A localização será acompanhada enquanto você estiver em serviço, inclusive com a tela bloqueada.")
+            .setMessage("Para entrar em serviço, autorize a localização precisa e selecione ‘Permitir o tempo todo’, além das notificações e chamadas em tela cheia. A localização é coletada somente enquanto você estiver em serviço, inclusive com a tela bloqueada.")
             .setPositiveButton("Conferir e continuar", (d,w) -> { waiting = false; resume(); })
             .setNegativeButton("Agora não", (d,w) -> cancel()).setOnCancelListener(d -> cancel()).show();
     }
@@ -43,6 +43,7 @@ final class DriverPermissions {
         return manager != null && manager.isProviderEnabled(LocationManager.GPS_PROVIDER);
     }
     private boolean precise() { return granted(Manifest.permission.ACCESS_FINE_LOCATION); }
+    private boolean backgroundLocation() { return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION); }
     private void denied() { cancel(); Toast.makeText(activity, "Serviço não ativado. Autorize as permissões solicitadas e tente novamente.", Toast.LENGTH_LONG).show(); }
 
     void advance() {
@@ -52,6 +53,19 @@ final class DriverPermissions {
         }
         if (!precise()) {
             request(Manifest.permission.ACCESS_FINE_LOCATION, LOCATION, "driver_location_requested", "Permita a localização precisa para entrar em serviço."); return;
+        }
+        if (!backgroundLocation()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                settings("Para receber coletas e compartilhar sua posição enquanto estiver em serviço, abra Permissões > Localização e selecione ‘Permitir o tempo todo’. A localização para ao sair de serviço.",
+                    new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + activity.getPackageName())), this::backgroundLocation);
+            } else {
+                waiting = true;
+                dialog = new AlertDialog.Builder(activity).setTitle("Localização em segundo plano")
+                    .setMessage("Para compartilhar sua posição e receber coletas enquanto estiver em serviço, selecione ‘Permitir o tempo todo’. A localização para ao sair de serviço.")
+                    .setPositiveButton("Continuar", (d,w) -> { waiting = false; request(Manifest.permission.ACCESS_BACKGROUND_LOCATION, BACKGROUND_LOCATION, "driver_background_location_requested", "Selecione ‘Permitir o tempo todo’ nas permissões de localização."); })
+                    .setNegativeButton("Agora não", (d,w) -> denied()).setOnCancelListener(d -> denied()).show();
+            }
+            return;
         }
         if (!gps()) { settings("Ative o GPS do aparelho para compartilhar sua localização durante o serviço.",
             new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS), this::gps); return; }
@@ -97,9 +111,9 @@ final class DriverPermissions {
     }
 
     boolean permissionResult(int code) {
-        if (code != NOTIFICATIONS && code != LOCATION) return false;
+        if (code != NOTIFICATIONS && code != LOCATION && code != BACKGROUND_LOCATION) return false;
         waiting = false;
-        if (ready != null) { if (code == LOCATION ? precise() : granted(Manifest.permission.POST_NOTIFICATIONS)) resume(); else denied(); }
+        if (ready != null) { if (code == LOCATION ? precise() : code == BACKGROUND_LOCATION ? backgroundLocation() : granted(Manifest.permission.POST_NOTIFICATIONS)) resume(); else denied(); }
         return true;
     }
     boolean settingsResult(int code) {

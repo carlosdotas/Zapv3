@@ -1,9 +1,9 @@
 {
   "packageName": "br.com.zapencomendas.transportadora.debug",
-  "versionCode": 13,
-  "versionName": "0.13.0-debug",
+  "versionCode": 14,
+  "versionName": "0.14.0-debug",
   "flavor": "transportadora",
-  "sha256": "cc2412ec71cbcaf87dfcf8f8a2b5415f6d39597023e8084df1f414786f5ea879",
-  "size": 4054015,
+  "sha256": "f99a3ae7182db9a6981948dee96da6d17b1fd1aa5c9f4484d4ed91ed1a3c4c6f",
+  "size": 4054999,
   "apkUrl": "https://dotas.site/downloads/encomendaszap-transportadora.apk"
 }
