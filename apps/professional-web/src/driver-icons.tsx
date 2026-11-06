@@ -12,6 +12,7 @@ const paths = {
   wifi: <><path d="M5 8.5a11 11 0 0 1 14 0M8.5 12a5.5 5.5 0 0 1 7 0M11 15.5a2 2 0 0 1 2 0M12 20h.01"/></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
   logout: <><path d="M10 17v3H4V4h6v3M14 8l4 4-4 4M8 12h10"/></>,
+  check: <path d="m5 12 4 4L19 6"/>,
   close: <path d="M6 6l12 12M18 6 6 18"/>,
 } satisfies Record<string, ReactNode>;
 

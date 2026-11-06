@@ -64,11 +64,11 @@
 @keyframes driver-you-arrow { 0%,100% { transform: translateY(-2px); } 50% { transform: translateY(2px); } }
 @keyframes driver-call-ground-shadow { 0%,100% { opacity: .55; scale: .8 1; } 50% { opacity: .9; scale: 1.1 1; } }
 .driver-place-sheet-backdrop { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; background: #02061766; animation: driver-sheet-shade .18s ease-out; }
-.driver-place-sheet { position: relative; display: flex; width: 100%; max-width: 600px; gap: 16px; margin-inline: auto; padding: 22px 20px max(22px,env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #fff; box-shadow: 0 -8px 32px #002b4930; animation: driver-sheet-rise .28s cubic-bezier(.2,.8,.2,1); }
+.driver-place-sheet { position: relative; display: grid; grid-template-columns: 82px minmax(0,1fr); align-items: start; column-gap: 16px; row-gap: 14px; width: 100%; max-width: 600px; margin-inline: auto; padding: 22px 20px max(22px,env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #fff; box-shadow: 0 -8px 32px #002b4930; animation: driver-sheet-rise .28s cubic-bezier(.2,.8,.2,1); }
 .driver-place-sheet__handle { position: absolute; top: 8px; left: 50%; width: 38px; height: 4px; border-radius: 4px; background: #cbd5e1; transform: translateX(-50%); }
 .driver-place-sheet__close { position: absolute; top: 15px; right: 16px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: #f1f5f9; color: #334155; font-size: 22px; line-height: 1; }
-.driver-place-sheet__photo { display: flex; width: 82px; min-height: 82px; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 2px dashed #cbd5e1; border-radius: 13px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; }
-.driver-place-sheet__content { min-width: 0; flex: 1; padding: 8px 30px 0 0; }
+.driver-place-sheet__photo { grid-column: 1; grid-row: 1; display: flex; width: 82px; min-height: 82px; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 2px dashed #cbd5e1; border-radius: 13px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; }
+.driver-place-sheet__content { grid-column: 2; grid-row: 1; min-width: 0; padding: 8px 30px 0 0; }
 .driver-place-sheet__title,.driver-place-sheet__address { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .driver-place-sheet__title { color: #002b49; font-size: 19px; font-weight: 900; }
 .driver-place-sheet__address { margin-top: 6px; color: #475569; font-size: 14px; }
@@ -80,6 +80,13 @@
 .driver-place-sheet__company-info { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .driver-place-sheet__company-info small { color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
 .driver-place-sheet__company-info strong { overflow: hidden; color: #002b49; font-size: 14px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.driver-place-sheet__actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.driver-place-sheet__actions button { display: flex; min-height: 58px; align-items: center; justify-content: center; gap: 9px; padding: 12px; border: 0; border-radius: 14px; color: #fff; font-size: 16px; font-weight: 900; box-shadow: 0 4px 12px #0f172a24; }
+.driver-place-sheet__actions button:active { transform: translateY(1px); }
+.driver-place-sheet__accept { background: #16a34a; }
+.driver-place-sheet__reject { background: #dc2626; }
+.driver-place-sheet__actions button:focus-visible { outline: 3px solid #0b5187; outline-offset: 3px; }
+@media (max-width: 360px) { .driver-place-sheet { grid-template-columns: 68px minmax(0,1fr); column-gap: 12px; padding-inline: 16px; } .driver-place-sheet__photo { width: 68px; min-height: 68px; } .driver-place-sheet__actions { gap: 8px; } .driver-place-sheet__actions button { min-height: 54px; gap: 6px; padding: 10px 6px; font-size: 14px; } }
 @keyframes driver-sheet-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes driver-sheet-shade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes driver-call-pulse { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.4); opacity: 0; } }

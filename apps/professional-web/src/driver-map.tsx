@@ -182,6 +182,10 @@ export function DriverMap({ location, locationStatus, onRequestLocation }: { loc
             <span className="driver-place-sheet__company-info"><small>Transportadora</small><strong>{DEMO_PLACE.name}</strong></span>
           </div>
         </div>
+        <div className="driver-place-sheet__actions">
+          <button type="button" className="driver-place-sheet__accept"><DriverIcon name="check" size={21}/>Aceitar</button>
+          <button type="button" className="driver-place-sheet__reject"><DriverIcon name="close" size={21}/>Recusar</button>
+        </div>
       </section>
     </div>, document.body)}
     {!validMapPoint(location) && <div className="driver-map__waiting" role="status"><span>{LOCATION_MESSAGES[locationStatus]}</span><button type="button" onClick={onRequestLocation}>Tentar novamente</button></div>}
