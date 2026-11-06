@@ -50,13 +50,13 @@
 .driver-map__controls button { border-radius: 50%; background: #fff; color: #1a73e8; box-shadow: 0 2px 7px #0f172a30; }
 .driver-map__scale { position: absolute; inset: 0; transform-origin: center; }
 .driver-map__controls { top: auto; bottom: 110px; }
-.driver-call-marker { position: absolute; z-index: 2; display: flex; width: 142px; flex-direction: column; align-items: center; transform: translate(-50%,-100%); animation: driver-call-float 1.8s ease-in-out infinite; pointer-events: none; }
-.driver-call-card { width: 100%; padding: 6px 8px; border: 2px solid #0b5187; border-radius: 11px; background: #fff; box-shadow: 0 3px 8px #002b4940; }
-.driver-call-company { display: flex; align-items: center; gap: 5px; color: #0b5187; font-size: 9px; font-weight: 800; }
-.driver-call-avatar { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; border-radius: 7px; background: #fff1e8; color: #ff5e00; }
-.driver-call-place { display: block; margin: 4px 0 6px; overflow: hidden; color: #002b49; font-size: 12px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
-.driver-call-details { display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5px; color: #475569; font-size: 10px; }
-.driver-call-details b { color: #0f172a; }
+.driver-call-marker { position: absolute; z-index: 2; display: flex; width: 180px; flex-direction: column; align-items: center; transform: translate(-50%,-100%); animation: driver-call-float 1.8s ease-in-out infinite; pointer-events: none; }
+.driver-call-card { width: 100%; padding: 8px 10px; border: 2px solid #0b5187; border-radius: 13px; background: linear-gradient(145deg,#fff 35%,#fff3e8); box-shadow: 0 4px 12px #002b4950; }
+.driver-call-company { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-radius: 8px; background: #0b5187; color: #fff; font-size: 12px; font-weight: 900; }
+.driver-call-avatar { display: grid; width: 26px; height: 26px; flex: 0 0 auto; place-items: center; border-radius: 7px; background: #ff5e00; color: #fff; }
+.driver-call-place { display: block; margin: 7px 2px; overflow: hidden; color: #002b49; font-size: 15px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.driver-call-details { display: flex; justify-content: space-between; border-top: 1px solid #f2c8a5; padding: 6px 2px 0; color: #334155; font-size: 13px; font-weight: 800; }
+.driver-call-details b { color: #c2410c; font-size: 14px; }
 .driver-call-box { position: relative; width: 25px; height: 25px; margin-top: 4px; }
 .driver-call-box::before { position: absolute; inset: 2px; border-radius: 10px; background: #ff5e00; content: ''; animation: driver-call-pulse 1.8s ease-out infinite; }
 .driver-call-box svg { position: relative; width: 100%; height: 100%; filter: drop-shadow(0 3px 4px #002b4966); animation: driver-call-wiggle 2.4s ease-in-out infinite; }

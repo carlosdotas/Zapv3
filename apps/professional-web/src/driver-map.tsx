@@ -7,8 +7,8 @@ const MIN_ZOOM = 3;
 const MAX_ZOOM = 19;
 const DEMO_CALLS = [
   { id: 'centro', place: 'Centro', km: '5 km', price: 'R$ 25,99', latitude: -16.62, longitude: -48.74 },
-  { id: 'jundiai', place: 'Setor Central', km: '8 km', price: 'R$ 32,50', latitude: -16.6188, longitude: -48.7388 },
-  { id: 'jaiara', place: 'Leopoldo de Bulhões, GO', km: '12 km', price: 'R$ 41,90', latitude: -16.6213, longitude: -48.7420 },
+  { id: 'jundiai', place: 'Setor Central', km: '8 km', price: 'R$ 32,50', latitude: -16.6168, longitude: -48.7368 },
+  { id: 'jaiara', place: 'Leopoldo de Bulhões, GO', km: '12 km', price: 'R$ 41,90', latitude: -16.6233, longitude: -48.7440 },
 ];
 
 export function DriverMap({ location }: { location: MapPoint | null }) {
