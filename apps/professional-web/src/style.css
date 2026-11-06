@@ -75,6 +75,11 @@
 .driver-place-sheet__meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
 .driver-place-sheet__meta span { display: inline-flex; align-items: center; gap: 6px; color: #0b5187; font-size: 14px; font-weight: 800; }
 .driver-place-sheet__meta b { padding: 7px 10px; border-radius: 9px; background: #fff1e8; color: #c2410c; font-size: 15px; }
+.driver-place-sheet__company { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+.driver-place-sheet__company-avatar { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border: 1px solid #cfe2f3; border-radius: 50%; background: #eaf4fc; color: #0b5187; }
+.driver-place-sheet__company-info { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.driver-place-sheet__company-info small { color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; }
+.driver-place-sheet__company-info strong { overflow: hidden; color: #002b49; font-size: 14px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes driver-sheet-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes driver-sheet-shade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes driver-call-pulse { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.4); opacity: 0; } }
